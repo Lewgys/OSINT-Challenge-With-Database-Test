@@ -1,4 +1,1301 @@
-<!DOCTYPE html>
+<!-- Login/Registration Modal -->
+<div class="modal active" id="loginModal">
+  <div class="modal-content">
+    <h2 class="modal-title">Welcome to OSINT Challenge</h2>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="userName">Your Name</label>
+        <input type="text" id="userName" required autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label for="userTeam">Team Name (Optional)</label>
+        <input type="text" id="userTeam" autocomplete="organization">
+      </div>
+      <button type="submit" class="form-submit">Start Challenge</button>
+      <div class="form-error" id="loginError"></div>
+    </form>
+  </div>
+</div>
+
+<!-- User Info Display -->
+<div class="user-info" id="userInfo">
+  <span id="userDisplay"></span>
+</div>
+
+<!-- Progress Dashboard Button -->
+<button class="dashboard-button" id="dashboardBtn" style="display: none;">
+  📊 Progress Dashboard
+</button>
+
+<!-- Progress Dashboard Modal -->
+<div class="dashboard-modal" id="dashboardModal">
+  <div class="dashboard-content">
+    <button class="close-dashboard" id="closeDashboard">×</button>
+    <h2 class="dashboard-title">OSINT Challenge Leaderboard</h2>
+    <div id="leaderboardContent">
+      <p style="text-align: center; color: #999;">Loading leaderboard...</p>
+    </div>
+  </div>
+</div>
+
+<div class="header">
+  <div class="briefing-container">
+    <button class="briefing-button" id="briefingBtn">📋Briefing</button>
+    <div class="briefing-dropdown" id="briefingDropdown">
+      <button class="briefing-close" id="briefingClose">✕</button>
+      <div class="briefing-title">Briefing</div>
+      <div class="briefing-content">
+        <p>Welcome to Lewis' OSINT Challenge. This challenge is supposed to test you on a variety of different OSINT techniques. Within your team it is highly likely if you smash your heads together that you will complete all 5 Tasks at hand.</p>
+        
+        <p>The challenge at hand will have you investigating a malicious threat actor that has compromised somebody's system and left a note. It is your job to gather as much information as possible on the individual and answer the questions accordingly. I highly recommend that you dig deeper than you think throughout this.</p>
+        
+        <div class="briefing-note">
+          <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to account holder and attempting brute-force attacks. Also, you get a NEW hint every time you get a wrong answer.
+
+          My final thing to note, testing this site in general, including checking its source code is deemed out of scope for this challenge. We want to encourage real-world OSINT skills, not source-diving
+        </div>
+        
+        <p>If you have any questions, please shout me over and i may offer a hint. And when you complete ALL the tasks shout me over to claim your prize...Good Luck</p>
+        
+        <div class="briefing-signature">- Lewis G</div>
+      </div>
+    </div>
+  </div>
+  
+  <h1>The OSINT Gauntlet</h1>
+  <p class="subtitle">Test your Open Source Intelligence skills</p>
+  
+  <div class="progress-container">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-text" id="progressText">0 of 6 tasks completed</div>
+  </div>
+</div>
+
+<div class="hint-counter" id="hintCounter">
+  Hint <span class="shame-text">Counter of Shame</span>: <span id="hintCount">0</span>
+</div>
+
+<ul class="task-list" id="taskList"></ul>
+<canvas id="fireworks"></canvas>
+
+</div> <!-- End main-content -->
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+<script>
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyABxG0WEo6nJpVrxNGRLs-wLitFdMHTUt0",
+  authDomain: "osint-gauntlet.firebaseapp.com",
+  projectId: "osint-gauntlet",
+  storageBucket: "osint-gauntlet.firebasestorage.app",
+  messagingSenderId: "740657297987",
+  appId: "1:740657297987:web:a8bfe968918690da94f2f6"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Configuration
+const CONFIG = {
+  HASH_ROUNDS: 1000,
+  FIREWORKS_PARTICLES: 120,
+  ANIMATION_DURATION: 5000,
+  STORAGE_KEY: 'osint_challenge_progress'
+};
+
+// Session storage key for user persistence
+const SESSION_STORAGE_KEY = 'osint_challenge_user_session';
+
+// Current user state
+let currentUser = null;
+
+// Global achievements system
+const ACHIEVEMENTS = {
+  helping_hand: {
+    title: "Helping Hand (Cheater)",
+    description: "Used their First Hint.",
+    icon: "💡"
+  },
+  speedrun_hour: {
+    title: "ANY% Speed Run", 
+    description: "Has Complete the OSINT Gaunlet within an hour.",
+    icon: "⚡"
+  },
+  gauntlet_complete: {
+    title: "COMPLETED THE GAUNLET",
+    description: "Has Completed the OSINT Gaunlet.",
+    icon: "👑",
+    special: "gold"
+  },
+  hint_addict: {
+    title: "This is getting embarassing...",
+    description: "Used more than 15 Hints.",
+    icon: "🤦"
+  },
+  wrong_king: {
+    title: "King of Getting Answers Wrong",
+    description: "Has had more than 5 Answers Wrong",
+    icon: "👑❌"
+  },
+  baby_steps: {
+    title: "Baby Steps",
+    description: "Completed Task 1!",
+    icon: "👶"
+  },
+  crypto_bro: {
+    title: "Crypto Bro",
+    description: "Completed Task 3 in 30 Minutes or Less",
+    icon: "₿"
+  },
+  no_hint_hero: {
+    title: "No Hint Hero",
+    description: "Complete a Task with no Hints",
+    icon: "🦸"
+  }
+};
+
+let achievementsListener = null;
+let userStartTime = null;
+let taskStartTimes = {};
+let totalWrongAnswers = 0;
+
+// Enhanced SHA-256 hashing with salt
+async function sha256(str, salt = 'osint2024') {
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode((str.toLowerCase().trim() + salt));
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (error) {
+    console.error('Hashing failed:', error);
+    return null;
+  }
+}
+
+// Input sanitization
+function sanitizeInput(input) {
+  return input.trim().replace(/[<>]/g, '');
+}
+
+// Enhanced tasks configuration with hints per question
+const tasks = [
+  {
+    id: 'task1',
+    title: 'Task 1: The Tip Off',
+    description: 'Analyse the provided image to identify the attacker',
+    questions: [
+      'What username does the attacker go by? (Click <a href="https://lewgys.github.io/The_OSINT_Gauntlet/images/pwnedletter.svg" data-original-path="/Users/beansbently/Desktop/Screenshots/pwned_note.png" data-uploaded-by="beansbently" target="_blank" rel="noopener noreferrer">here</a> to view the tip-off image.)'
+    ],
+    answers: ['beansbently'],
+    keys: 1,
+    hints: [
+      ['No hints on Task 1 nice try lol', 'Nice try, still no hints on Task 1...Unless you get it wrong again', 'I lied no Hints :)']
+    ]
+  },
+  {
+    id: 'task2',
+    title: 'Task 2: Recon',
+    description: 'Gather intelligence on the target',
+    questions: [
+      'What is the full email address of the attacker?',
+      'What is the attacker\'s full real name?'
+    ],
+    answers: ['beansbently1337@gmail.com', 'elliot alderson'],
+    keys: 2,
+    hints: [
+      ['Try searching the username on different platforms', 'Look for profile information on professional sites', 'GitHub'],
+      ['Social media profiles often contain real names', 'Look through social media', 'No more hints :)']
+    ]
+  },
+  {
+    id: 'task3',
+    title: 'Task 3: Cryptic Crypto',
+    description: 'Investigate cryptocurrency activities',
+    questions: [
+      'What Cryptocurrency does the attacker own a wallet for? (abbreviation of the crypto)',
+      'What is the attacker\'s cryptocurrency wallet address?',
+      'What mining pool did the attacker receive crypto from on January 23rd, 2021?',
+      'What other cryptocurrency did the attacker exchange with?'
+    ],
+    answers: ['eth', '0xa102397dbeebefd8cd2f73a89122fcdb53abb6ef', 'ethermine', 'tether'],
+    keys: 4,
+    hints: [
+      ['Look for cryptocurrency mentions in profiles', 'Check for wallet address files', 'ETH is a common cryptocurrency'],
+      ['Wallet addresses are long alphanumeric strings', 'Check social media profiles for addresses', 'Look Deeper into pre-existing files'],
+      ['Use blockchain explorers to trace transactions', 'Check transaction history for the date', 'Mining pools have identifiable names'],
+      ['Look at exchange transactions', 'Check what was traded for', 'No more hints :)']
+    ]
+  },
+  {
+    id: 'task4',
+    title: 'Task 4: Social Scrape',
+    description: 'Find current social media presence',
+    questions: [
+      'What is the attacker\'s current Twitter (X) handle?',
+      'At what company was the attacker last employed at?'
+    ],
+    answers: ['beansbentlyel', 'BEANS4U'],
+    keys: 2,
+    hints: [
+      ['Try variations of known usernames', 'Check for similar handles', 'No More Hints :)'],
+      ['Check professional networking sites', 'Look for employment history', 'What documents are usually found to have past experience?']
+    ]
+  },
+  {
+    id: 'task5',
+    title: 'Task 5: Air Miles',
+    description: 'Track travel movements',
+    questions: [
+      'What airport is closest to the location the attacker shared a photo from prior to getting on their flight? (Airport code)',
+      'What airport is the attacker having a layover at? (Airport code)'
+    ],
+    answers: ['dca', 'dxb'],
+    keys: 2,
+    hints: [
+      ['Look for landmarks in photos', 'Reverse Image Search is a good tool', 'No More Hints?'],
+      ['Anything stand out in the picture?', 'No More Hints :)', 'No More Hints :)']
+    ]
+  },
+  {
+    id: 'task6',
+    title: 'Task 6: Bonus Round',
+    description: 'Final challenge - Good Luck',
+    questions: [
+      'What is the mystery flag?',
+      'What building does the attacker live in?'
+    ],
+    answers: ['reconsile-object-heir-coal', 'stormveil castle'],
+    keys: 2,
+    hiddenUntil: 'task5',
+    hints: [
+      ['Delve Deeper into places you have already been', 'you need to DIG deeper', 'This is a bonus round, you do not get a third hint ;)'],
+      ['Sometimes the answer is hidden in plain sight', 'No More Hints :)', 'No More Hints :)']
+    ]
+  }
+];
+
+// Session management functions
+function loadUserSession() {
+  try {
+    const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!savedSession) return null;
+    
+    const session = JSON.parse(savedSession);
+    
+    // Check if session is recent (within 24 hours)
+    const sessionAge = Date.now() - session.timestamp;
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    
+    if (sessionAge > maxAge) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
+    
+    return session;
+  } catch (error) {
+    console.error('Error loading session:', error);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  }
+}
+
+function clearUserSession() {
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+  currentUser = null;
+}
+
+// Generate unique session ID
+function generateSessionId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// User Management
+async function saveUserToFirebase(name, team) {
+  try {
+    // Always create a new user entry (no checking for duplicates)
+    // This ensures each session is unique even if names are the same
+    const userRef = await db.collection('users').add({
+      name: name,
+      team: team || 'Solo',
+      startTime: firebase.firestore.FieldValue.serverTimestamp(),
+      lastActive: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    const userId = userRef.id;
+    
+    // Save session to localStorage with unique session ID
+    const userSession = {
+      id: userId,
+      name: name,
+      team: team || 'Solo',
+      timestamp: Date.now(),
+      sessionId: generateSessionId()
+    };
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(userSession));
+    
+    return userId;
+  } catch (error) {
+    console.error('Error saving user:', error);
+    return null;
+  }
+}
+
+// Achievement Management
+async function unlockAchievement(achievementId, userId, userName, teamName) {
+  try {
+    console.log('Attempting to unlock achievement:', achievementId, 'for user:', userName, 'with ID:', userId);
+    
+    if (!ACHIEVEMENTS[achievementId]) {
+      console.warn('Achievement not found:', achievementId);
+      return;
+    }
+
+    if (!userId || !userName) {
+      console.error('Missing required parameters:', { userId, userName });
+      return;
+    }
+
+    // Check if user already has this achievement
+    const existingQuery = await db.collection('achievements')
+      .where('userId', '==', userId)
+      .where('achievementId', '==', achievementId)
+      .get();
+
+    if (!existingQuery.empty) {
+      console.log('User already has this achievement:', achievementId);
+      return;
+    }
+
+    console.log('Awarding achievement:', achievementId);
+    
+    // Award the achievement
+    await db.collection('achievements').add({
+      userId: userId,
+      userName: userName,
+      teamName: teamName || 'Solo',
+      achievementId: achievementId,
+      achievementTitle: ACHIEVEMENTS[achievementId].title,
+      achievementDescription: ACHIEVEMENTS[achievementId].description,
+      achievementIcon: ACHIEVEMENTS[achievementId].icon,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      createdAt: new Date().toISOString()
+    });
+
+    console.log('Achievement unlocked:', achievementId, 'for', userName);
+  } catch (error) {
+    console.error('Error unlocking achievement:', error);
+  }
+}
+
+// Real-time achievements listener
+function startAchievementsListener() {
+  const achievementsList = document.getElementById('achievementsList');
+  
+  console.log('Starting achievements listener...');
+  
+  achievementsListener = db.collection('achievements')
+    .orderBy('timestamp', 'desc')
+    .limit(20)
+    .onSnapshot((snapshot) => {
+      console.log('Achievements snapshot received, changes:', snapshot.docChanges().length);
+      
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const achievement = change.doc.data();
+          console.log('New achievement added:', achievement);
+          displayAchievement(achievement, achievementsList);
+        }
+      });
+    }, (error) => {
+      console.error('Error in achievements listener:', error);
+    });
+}
+
+function displayAchievement(achievement, container) {
+  // Remove placeholder if exists
+  const placeholder = container.querySelector('[style*="italic"]');
+  if (placeholder) {
+    placeholder.remove();
+  }
+
+  const achievementEl = document.createElement('div');
+  achievementEl.className = 'achievement-item new';
+  
+  // Add special styling for gold achievements
+  if (achievement.achievementId === 'gauntlet_complete') {
+    achievementEl.classList.add('gold');
+  }
+  
+  const timeAgo = getTimeAgo(achievement.createdAt);
+  
+  achievementEl.innerHTML = `
+    <div class="achievement-icon">${achievement.achievementIcon}</div>
+    <div class="achievement-time">${timeAgo}</div>
+    <div class="achievement-content">
+      <div class="achievement-user">${achievement.userName}${achievement.teamName !== 'Solo' ? ` (${achievement.teamName})` : ''} Unlocked an Achievement!</div>
+      <div class="achievement-title">${achievement.achievementTitle}</div>
+      <div class="achievement-description">${achievement.achievementDescription}</div>
+    </div>
+  `;
+  
+  // Insert at the top
+  container.insertBefore(achievementEl, container.firstChild);
+  
+  // Remove 'new' class after animation
+  setTimeout(() => {
+    achievementEl.classList.remove('new');
+  }, 2000);
+  
+  // Keep only latest 15 achievements visible
+  while (container.children.length > 15) {
+    container.removeChild(container.lastChild);
+  }
+}
+
+function getTimeAgo(timestamp) {
+  if (!timestamp) return 'now';
+  
+  const now = new Date();
+  const time = new Date(timestamp);
+  const diffMs = now - time;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  
+  if (diffMins < 1) return 'now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return time.toLocaleDateString();
+}
+
+// Check and award achievements based on user actions
+async function checkAchievements(context, data = {}) {
+  if (!currentUser) {
+    console.log('No current user for achievements:', currentUser);
+    return;
+  }
+  
+  console.log('Checking achievements:', context, data);
+  console.log('Current user object:', currentUser);
+  
+  // Extract user data - handle both old format (id, name, team) and new format (userId, userName, teamName)
+  const userId = currentUser.id || currentUser.userId;
+  const userName = currentUser.name || currentUser.userName;
+  const teamName = currentUser.team || currentUser.teamName;
+  
+  // Validate that we have all required user data
+  if (!userId || !userName) {
+    console.log('Missing required user data:', { userId, userName, currentUser });
+    return;
+  }
+  
+  console.log('Using user data:', { userId, userName, teamName });
+  
+  switch (context) {
+    case 'user_started':
+      userStartTime = Date.now();
+      console.log('User started at:', userStartTime);
+      break;
+      
+    case 'task_started':
+      if (data.taskId) {
+        taskStartTimes[data.taskId] = Date.now();
+        console.log('Task started:', data.taskId, 'at:', taskStartTimes[data.taskId]);
+      }
+      break;
+      
+    case 'task_completed':
+      console.log('Task completed:', data.taskId);
+      if (data.taskId === 'task1') {
+        await unlockAchievement('baby_steps', userId, userName, teamName);
+      }
+      
+      if (data.taskId === 'task3') {
+        const taskStartTime = taskStartTimes['task3'];
+        if (taskStartTime) {
+          const timeSpent = (Date.now() - taskStartTime) / 1000 / 60;
+          console.log('Task 3 completed in:', timeSpent, 'minutes');
+          if (timeSpent <= 30) {
+            await unlockAchievement('crypto_bro', userId, userName, teamName);
+          }
+        }
+      }
+      
+      if (data.taskHintsUsed === 0) {
+        console.log('Task completed with no hints');
+        await unlockAchievement('no_hint_hero', userId, userName, teamName);
+      }
+      
+      if (data.completedCount === 6) {
+        await unlockAchievement('gauntlet_complete', userId, userName, teamName);
+        
+        if (userStartTime) {
+          const totalTime = (Date.now() - userStartTime) / 1000 / 60 / 60;
+          console.log('Total completion time:', totalTime, 'hours');
+          if (totalTime <= 1) {
+            await unlockAchievement('speedrun_hour', userId, userName, teamName);
+          }
+        }
+      }
+      break;
+      
+    case 'hint_used':
+      console.log('Hint used, total count:', data.hintCount);
+      if (data.hintCount === 1) {
+        console.log('First hint used - unlocking helping_hand');
+        await unlockAchievement('helping_hand', userId, userName, teamName);
+      }
+      
+      if (data.hintCount > 15) {
+        console.log('More than 15 hints used - unlocking hint_addict');
+        await unlockAchievement('hint_addict', userId, userName, teamName);
+      }
+      break;
+      
+    case 'answer_wrong':
+      totalWrongAnswers++;
+      console.log('Wrong answer, total count:', totalWrongAnswers);
+      if (totalWrongAnswers > 5) {
+        await unlockAchievement('wrong_king', userId, userName, teamName);
+      }
+      break;
+  }
+}
+
+async function updateUserProgress(userId, taskId, completed, hints, attempts) {
+  try {
+    await db.collection('progress').add({
+      userId: userId,
+      taskId: taskId,
+      completed: completed,
+      hintsUsed: hints,
+      attempts: attempts,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await db.collection('users').doc(userId).update({
+      lastActive: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    const currentSession = loadUserSession();
+    if (currentSession && currentSession.id === userId) {
+      currentSession.timestamp = Date.now();
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentSession));
+    }
+  } catch (error) {
+    console.error('Error updating progress:', error);
+  }
+}
+
+async function loadLeaderboard() {
+  try {
+    const users = await db.collection('users').get();
+    const progress = await db.collection('progress').get();
+    
+    const userMap = {};
+    users.forEach(doc => {
+      userMap[doc.id] = { id: doc.id, ...doc.data(), completedTasks: 0, totalHints: 0 };
+    });
+    
+    progress.forEach(doc => {
+      const data = doc.data();
+      if (data.completed && userMap[data.userId]) {
+        userMap[data.userId].completedTasks++;
+        userMap[data.userId].totalHints += data.hintsUsed || 0;
+      }
+    });
+    
+    return Object.values(userMap).sort((a, b) => {
+      if (b.completedTasks !== a.completedTasks) {
+        return b.completedTasks - a.completedTasks;
+      }
+      return a.totalHints - b.totalHints;
+    });
+  } catch (error) {
+    console.error('Error loading leaderboard:', error);
+    return [];
+  }
+}
+
+// Login functionality
+document.addEventListener('DOMContentLoaded', () => {
+  const loginForm = document.getElementById('loginForm');
+  const loginModal = document.getElementById('loginModal');
+  const userInfo = document.getElementById('userInfo');
+  const userDisplay = document.getElementById('userDisplay');
+  const dashboardBtn = document.getElementById('dashboardBtn');
+  const dashboardModal = document.getElementById('dashboardModal');
+  const closeDashboard = document.getElementById('closeDashboard');
+  
+  // Check for existing session on page load
+  const existingSession = loadUserSession();
+  if (existingSession) {
+    currentUser = existingSession;
+    loginModal.classList.remove('active');
+    userInfo.classList.add('active');
+    userDisplay.textContent = `${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
+    dashboardBtn.style.display = 'block';
+    
+    console.log('Restored user session:', currentUser);
+    
+    new OSINTChallenge();
+    startAchievementsListener();
+    checkAchievements('user_started');
+  }
+  
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById('userName').value.trim();
+    const team = document.getElementById('userTeam').value.trim();
+    
+    if (!name) {
+      document.getElementById('loginError').textContent = 'Please enter your name';
+      return;
+    }
+    
+    console.log('Attempting to save user:', name, team);
+    const userId = await saveUserToFirebase(name, team);
+    console.log('Received userId:', userId);
+    
+    if (userId) {
+      currentUser = { id: userId, name, team };
+      console.log('Set currentUser to:', currentUser);
+      
+      loginModal.classList.remove('active');
+      userInfo.classList.add('active');
+      userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
+      dashboardBtn.style.display = 'block';
+      
+      console.log('Set current user:', currentUser);
+      
+      new OSINTChallenge();
+      startAchievementsListener();
+      checkAchievements('user_started');
+    } else {
+      console.error('Failed to get userId');
+      document.getElementById('loginError').textContent = 'Error starting challenge. Please try again.';
+    }
+  });
+  
+  // Dashboard functionality
+  dashboardBtn.addEventListener('click', async () => {
+    dashboardModal.classList.add('active');
+    const leaderboardContent = document.getElementById('leaderboardContent');
+    leaderboardContent.innerHTML = '<p style="text-align: center; color: #999;">Loading leaderboard...</p>';
+    
+    const leaderboard = await loadLeaderboard();
+    
+    if (leaderboard.length === 0) {
+      leaderboardContent.innerHTML = '<p style="text-align: center; color: #999;">No progress data yet.</p>';
+      return;
+    }
+    
+    let html = `
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Team</th>
+            <th>Tasks Completed</th>
+            <th>Hints Used</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    
+    leaderboard.forEach((user, index) => {
+      const isCurrentUser = currentUser && user.id === currentUser.id;
+      html += `
+        <tr${isCurrentUser ? ' style="background: rgba(176, 211, 81, 0.1);"' : ''}>
+          <td>${index + 1}</td>
+          <td>${user.name}${isCurrentUser ? ' (You)' : ''}</td>
+          <td>${user.team || 'Solo'}</td>
+          <td>${user.completedTasks}/6</td>
+          <td>${user.totalHints}</td>
+        </tr>
+      `;
+    });
+    
+    html += '</tbody></table>';
+    leaderboardContent.innerHTML = html;
+  });
+  
+  closeDashboard.addEventListener('click', () => {
+    dashboardModal.classList.remove('active');
+  });
+  
+  // Briefing functionality
+  const briefingBtn = document.getElementById('briefingBtn');
+  const briefingDropdown = document.getElementById('briefingDropdown');
+  const briefingClose = document.getElementById('briefingClose');
+
+  function toggleBriefing() {
+    const isVisible = briefingDropdown.style.display === 'block';
+    briefingDropdown.style.display = isVisible ? 'none' : 'block';
+  }
+
+  function closeBriefing() {
+    briefingDropdown.style.display = 'none';
+  }
+
+  briefingBtn.addEventListener('click', toggleBriefing);
+  briefingClose.addEventListener('click', closeBriefing);
+
+  document.addEventListener('click', (e) => {
+    if (!briefingBtn.contains(e.target) && !briefingDropdown.contains(e.target)) {
+      closeBriefing();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeBriefing();
+      if (dashboardModal.classList.contains('active')) {
+        dashboardModal.classList.remove('active');
+      }
+    }
+  });
+});
+
+// Game state management
+class OSINTChallenge {
+  constructor() {
+    this.completedTasks = this.loadProgress();
+    this.attemptCounts = {};
+    this.questionAttempts = {};
+    this.hintClickCount = this.loadHintCount();
+    this.taskListEl = document.getElementById('taskList');
+    this.hintCountEl = document.getElementById('hintCount');
+    this.init();
+  }
+
+  init() {
+    this.checkIntegrity();
+    this.createTasksUI();
+    this.updateProgress();
+    this.updateHintCounter();
+  }
+
+  checkIntegrity() {
+    if (tasks.length !== 6) {
+      console.warn('Task integrity check failed');
+    }
+  }
+
+  loadProgress() {
+    try {
+      const saved = localStorage.getItem(CONFIG.STORAGE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.error('Failed to load progress:', e);
+      return {};
+    }
+  }
+
+  loadHintCount() {
+    try {
+      const saved = localStorage.getItem(CONFIG.STORAGE_KEY + '_hints');
+      return saved ? parseInt(saved) : 0;
+    } catch (e) {
+      console.error('Failed to load hint count:', e);
+      return 0;
+    }
+  }
+
+  saveProgress() {
+    try {
+      localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(this.completedTasks));
+    } catch (e) {
+      console.error('Failed to save progress:', e);
+    }
+  }
+
+  saveHintCount() {
+    try {
+      localStorage.setItem(CONFIG.STORAGE_KEY + '_hints', this.hintClickCount.toString());
+    } catch (e) {
+      console.error('Failed to save hint count:', e);
+    }
+  }
+
+  updateHintCounter() {
+    if (this.hintCountEl) {
+      this.hintCountEl.textContent = this.hintClickCount;
+    }
+  }
+
+  updateProgress() {
+    const completed = Object.keys(this.completedTasks).length;
+    const isTask6Unlocked = this.completedTasks['task5'];
+    const visibleTotal = isTask6Unlocked ? 6 : 5;
+    const percentage = (completed / visibleTotal) * 100;
+    
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    
+    progressFill.style.width = `${percentage}%`;
+    progressText.textContent = `${completed} of ${visibleTotal} tasks completed`;
+    
+    if (isTask6Unlocked && !document.querySelector('[data-task-id="task6"]').style.display !== 'none') {
+      progressText.textContent += ' 🎁 Bonus task unlocked!';
+    }
+  }
+
+  createTasksUI() {
+    tasks.forEach((task, index) => {
+      const li = document.createElement('li');
+      li.classList.add('task');
+      li.dataset.taskId = task.id;
+      li.setAttribute('role', 'button');
+      li.setAttribute('tabindex', '0');
+
+      if (task.hiddenUntil && !this.completedTasks[task.hiddenUntil]) {
+        li.style.display = 'none';
+      }
+
+      if (this.completedTasks[task.id]) {
+        li.classList.add('completed');
+      }
+
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'task-title';
+      
+      const titleText = document.createElement('span');
+      titleText.textContent = task.title;
+      
+      const statusDiv = document.createElement('div');
+      statusDiv.className = 'task-status';
+      
+      const badge = document.createElement('span');
+      badge.className = 'task-badge';
+      
+      if (this.completedTasks[task.id]) {
+        badge.textContent = 'Completed';
+        badge.classList.add('completed');
+      } else if (index > 0 && !this.completedTasks[tasks[index - 1]?.id]) {
+        badge.textContent = 'Locked';
+        badge.classList.add('locked');
+        li.classList.add('locked');
+      } else {
+        badge.textContent = 'Available';
+      }
+      
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.innerHTML = '▼';
+      
+      statusDiv.appendChild(badge);
+      statusDiv.appendChild(arrow);
+      titleDiv.appendChild(titleText);
+      titleDiv.appendChild(statusDiv);
+      li.appendChild(titleDiv);
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'task-content';
+
+      if (task.description) {
+        const descP = document.createElement('p');
+        descP.style.fontStyle = 'italic';
+        descP.style.color = '#999';
+        descP.style.marginBottom = '1rem';
+        descP.textContent = task.description;
+        contentDiv.appendChild(descP);
+      }
+
+      task.questions.forEach((q, i) => {
+        const questionContainer = document.createElement('div');
+        questionContainer.className = 'question-container';
+        
+        const questionHeader = document.createElement('div');
+        questionHeader.className = 'question-header';
+        
+        const questionP = document.createElement('p');
+        questionP.className = 'question';
+        questionP.innerHTML = q;
+        
+        const hintBtn = document.createElement('button');
+        hintBtn.textContent = 'Hint';
+        hintBtn.className = 'hint-btn';
+        hintBtn.setAttribute('aria-label', `Show hint for question ${i + 1}`);
+        hintBtn.dataset.questionIndex = i;
+        
+        questionHeader.appendChild(questionP);
+        questionHeader.appendChild(hintBtn);
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.autocomplete = 'off';
+        input.id = `${task.id}_q${i}`;
+        input.setAttribute('aria-label', `Answer for question ${i + 1}`);
+        
+        const hintText = document.createElement('div');
+        hintText.className = 'hint-text';
+        hintText.id = `${task.id}_hint${i}`;
+        
+        questionContainer.appendChild(questionHeader);
+        questionContainer.appendChild(input);
+        questionContainer.appendChild(hintText);
+        
+        contentDiv.appendChild(questionContainer);
+        
+        hintBtn.addEventListener('click', () => this.showQuestionHint(task, i, hintText, hintBtn));
+      });
+
+      const submitBtn = document.createElement('button');
+      submitBtn.textContent = 'Submit';
+      submitBtn.className = 'submit-btn';
+      submitBtn.setAttribute('aria-label', 'Submit answers');
+      contentDiv.appendChild(submitBtn);
+
+      const feedbackP = document.createElement('p');
+      feedbackP.className = 'feedback';
+      feedbackP.setAttribute('aria-live', 'polite');
+      contentDiv.appendChild(feedbackP);
+
+      li.appendChild(contentDiv);
+
+      this.setupEventHandlers(li, task, index, submitBtn, feedbackP);
+
+      this.taskListEl.appendChild(li);
+    });
+  }
+
+  setupEventHandlers(li, task, index, submitBtn, feedbackP) {
+    const titleDiv = li.querySelector('.task-title');
+    const contentDiv = li.querySelector('.task-content');
+
+    const toggleTask = () => {
+      if (this.isTaskLocked(task, index)) {
+        this.showFeedback(feedbackP, 'You need to complete the previous task first!', 'error');
+        return;
+      }
+
+      if (task.hiddenUntil && !this.completedTasks[task.hiddenUntil]) {
+        this.showFeedback(feedbackP, 'This task is not yet available!', 'error');
+        return;
+      }
+
+      const isOpen = li.classList.contains('open');
+      
+      document.querySelectorAll('li.task.open').forEach(openLi => {
+        if (openLi !== li) {
+          openLi.classList.remove('open');
+          openLi.querySelector('.task-content').style.display = 'none';
+        }
+      });
+
+      if (isOpen) {
+        li.classList.remove('open');
+        contentDiv.style.display = 'none';
+      } else {
+        li.classList.add('open');
+        contentDiv.style.display = 'block';
+        contentDiv.querySelector('input')?.focus();
+        
+        checkAchievements('task_started', { taskId: task.id });
+      }
+    };
+
+    titleDiv.addEventListener('click', toggleTask);
+    titleDiv.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleTask();
+      }
+    });
+
+    contentDiv.addEventListener('click', e => e.stopPropagation());
+
+    submitBtn.addEventListener('click', () => this.handleSubmit(task, feedbackP, submitBtn));
+
+    contentDiv.querySelectorAll('input').forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          this.handleSubmit(task, feedbackP, submitBtn);
+        }
+      });
+    });
+  }
+
+  isTaskLocked(task, index) {
+    return index > 0 && !this.completedTasks[tasks[index - 1]?.id];
+  }
+
+  showQuestionHint(task, questionIndex, hintText, hintBtn) {
+    if (!task.hints || !task.hints[questionIndex]) return;
+    
+    const questionKey = `${task.id}_q${questionIndex}`;
+    if (!this.questionAttempts[questionKey]) {
+      this.questionAttempts[questionKey] = 0;
+    }
+    
+    const attemptCount = this.questionAttempts[questionKey];
+    const availableHints = task.hints[questionIndex];
+    const hintIndex = Math.min(attemptCount, availableHints.length - 1);
+    
+    if (hintText.style.display === 'block') {
+      hintText.style.display = 'none';
+      hintBtn.textContent = 'Hint';
+    } else {
+      this.hintClickCount++;
+      this.saveHintCount();
+      this.updateHintCounter();
+      
+      console.log('Checking hint achievements, hint count:', this.hintClickCount);
+      checkAchievements('hint_used', { hintCount: this.hintClickCount });
+      
+      hintText.textContent = availableHints[hintIndex];
+      hintText.style.display = 'block';
+      hintBtn.textContent = 'Hide';
+    }
+  }
+
+  async handleSubmit(task, feedbackP, submitBtn) {
+    const inputs = Array.from(document.querySelectorAll(`input[id^="${task.id}_q"]`));
+    const answers = inputs.map(inp => sanitizeInput(inp.value));
+
+    if (answers.some(answer => !answer)) {
+      this.showFeedback(feedbackP, 'Please fill in all fields.', 'error');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
+    submitBtn.textContent = '';
+
+    try {
+      const results = await this.validateAnswersIndividually(task, answers);
+      const allCorrect = results.every(r => r);
+      
+      if (allCorrect) {
+        if (this.completedTasks[task.id]) {
+          this.showFeedback(feedbackP, 'Task already completed! 🎉', 'info');
+        } else {
+          this.completedTasks[task.id] = {
+            completed: true,
+            timestamp: new Date().toISOString(),
+            attempts: (this.attemptCounts[task.id] || 0) + 1
+          };
+          this.saveProgress();
+          this.showFeedback(feedbackP, 'Correct! Task completed! 🎉', 'success');
+          this.launchFireworks();
+          this.updateTaskStatus(task.id);
+          this.updateProgress();
+          this.unlockNextTask(task);
+          
+          const taskHintsUsed = this.getTaskHintsUsed(task.id);
+          checkAchievements('task_completed', { 
+            taskId: task.id, 
+            completedCount: Object.keys(this.completedTasks).length,
+            attempts: this.attemptCounts[task.id] || 1,
+            hintsUsed: this.hintClickCount,
+            taskHintsUsed: taskHintsUsed
+          });
+          
+          if (currentUser) {
+            await updateUserProgress(
+              currentUser.id,
+              task.id,
+              true,
+              this.hintClickCount,
+              this.attemptCounts[task.id] || 1
+            );
+          }
+        }
+      } else {
+        results.forEach((correct, index) => {
+          if (!correct) {
+            const questionKey = `${task.id}_q${index}`;
+            this.questionAttempts[questionKey] = (this.questionAttempts[questionKey] || 0) + 1;
+          }
+        });
+        
+        this.attemptCounts[task.id] = (this.attemptCounts[task.id] || 0) + 1;
+        
+        const incorrectCount = results.filter(r => !r).length;
+        this.showFeedback(feedbackP, `${incorrectCount} answer(s) incorrect. Check the hints for help!`, 'error');
+        
+        checkAchievements('answer_wrong', { wrongCount: incorrectCount });
+      }
+    } catch (error) {
+      this.showFeedback(feedbackP, 'An error occurred. Please try again.', 'error');
+      console.error('Validation error:', error);
+    } finally {
+      setTimeout(() => {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.textContent = 'Submit';
+      }, 1000);
+    }
+  }
+
+  async validateAnswersIndividually(task, userAnswers) {
+    if (userAnswers.length !== task.answers.length) return Array(task.answers.length).fill(false);
+
+    const results = [];
+    for (let i = 0; i < userAnswers.length; i++) {
+      const userHash = await sha256(userAnswers[i]);
+      const correctHash = await sha256(task.answers[i]);
+      results.push(userHash === correctHash);
+    }
+    return results;
+  }
+
+  getTaskHintsUsed(taskId) {
+    let taskHints = 0;
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return 0;
+    
+    for (let i = 0; i < task.questions.length; i++) {
+      const questionKey = `${taskId}_q${i}`;
+      taskHints += this.questionAttempts[questionKey] || 0;
+    }
+    return taskHints;
+  }
+
+  showFeedback(feedbackEl, message, type) {
+    feedbackEl.textContent = message;
+    feedbackEl.className = `feedback ${type}`;
+  }
+
+  updateTaskStatus(taskId) {
+    const taskEl = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (taskEl) {
+      taskEl.classList.add('completed');
+      const badge = taskEl.querySelector('.task-badge');
+      badge.textContent = 'Completed';
+      badge.classList.add('completed');
+    }
+  }
+
+  unlockNextTask(currentTask) {
+    const currentIndex = tasks.findIndex(t => t.id === currentTask.id);
+    if (currentIndex < tasks.length - 1) {
+      const nextTask = tasks[currentIndex + 1];
+      const nextTaskEl = document.querySelector(`[data-task-id="${nextTask.id}"]`);
+      if (nextTaskEl) {
+        nextTaskEl.style.display = 'list-item';
+        nextTaskEl.classList.remove('locked');
+        const badge = nextTaskEl.querySelector('.task-badge');
+        badge.textContent = 'Available';
+        badge.classList.remove('locked');
+      }
+    }
+
+    tasks.forEach(task => {
+      if (task.hiddenUntil === currentTask.id) {
+        const hiddenTaskEl = document.querySelector(`[data-task-id="${task.id}"]`);
+        if (hiddenTaskEl) {
+          hiddenTaskEl.style.display = 'list-item';
+          hiddenTaskEl.classList.add('bonus');
+        }
+      }
+    });
+  }
+
+  launchFireworks() {
+    const canvas = document.getElementById('fireworks');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles = Array.from({ length: CONFIG.FIREWORKS_PARTICLES }, () => ({
+      x: canvas.width / 2 + (Math.random() - 0.5) * 200,
+      y: canvas.height / 2 + (Math.random() - 0.5) * 200,
+      radius: Math.random() * 4 + 1,
+      color: `hsl(${Math.random() * 360}, 100%, 60%)`,
+      angle: Math.random() * 2 * Math.PI,
+      speed: Math.random() * 8 + 3,
+      alpha: 1,
+      decay: 0.015 + Math.random() * 0.02,
+      gravity: 0.1
+    }));
+
+    function animate() {
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach((particle, index) => {
+        particle.x += Math.cos(particle.angle) * particle.speed;
+        particle.y += Math.sin(particle.angle) * particle.speed + particle.gravity;
+        particle.speed *= 0.99;
+        particle.alpha -= particle.decay;
+        particle.gravity += 0.02;
+
+        if (particle.alpha <= 0) {
+          particles.splice(index, 1);
+          return;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = particle.alpha;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.radius, 0, 2 * Math.PI);
+        ctx.fillStyle = particle.color;
+        ctx.fill();
+        ctx.restore();
+      });
+
+      if (particles.length > 0) {
+        requestAnimationFrame(animate);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    animate();
+    
+    setTimeout(() => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }, CONFIG.ANIMATION_DURATION);
+  }
+}
+
+window.addEventListener('resize', () => {
+  const canvas = document.getElementById('fireworks');
+  if (canvas) {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('li.task.open').forEach(li => {
+      li.classList.remove('open');
+      li.querySelector('.task-content').style.display = 'none';
+    });
+  }
+});
+
+setInterval(() => {
+  if (tasks.length !== 6) {
+    console.warn('Task integrity compromised');
+  }
+}, 5000);
+
+console.log(`
+  ╔═══════════════════════════════════╗
+  ║        OSINT Challenge            ║
+  ║                                   ║
+  ║   Looking for shortcuts? 🕵️       ║
+  ║   That's not very OSINT of you!   ║
+  ║                                   ║
+  ║   Happy investigating! 🔍         ║
+  ╚═══════════════════════════════════╝
+`);
+
+</script>
+
+</body>
+</html><!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -362,7 +1659,7 @@
     color: #b0d351;
   }
 
-  /* Existing styles from your original file */
+  /* Rest of existing styles */
   .header {
     text-align: center;
     margin-bottom: 1.5rem;
@@ -830,18 +2127,6 @@
     display: none;
   }
   
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  
   @media (max-width: 1200px) {
     body {
       grid-template-columns: 1fr;
@@ -929,32 +2214,6 @@
       font-size: 0.8rem;
     }
   }
-  
-  @media (max-width: 480px) {
-    .header {
-      padding-top: 2.5rem;
-    }
-    
-    .hint-counter {
-      font-size: 0.8rem;
-      padding: 0.4rem 0.8rem;
-      margin: 1rem auto 1rem auto;
-    }
-    
-    .briefing-button {
-      padding: 0.6rem 1.2rem;
-      font-size: 0.8rem;
-    }
-    
-    h1 {
-      font-size: 1.8rem;
-    }
-    
-    .hint-btn {
-      padding: 0.3rem 0.6rem;
-      font-size: 0.8rem;
-    }
-  }
 </style>
 </head>
 <body>
@@ -974,1340 +2233,4 @@
 
 <!-- Login/Registration Modal -->
 <div class="modal active" id="loginModal">
-  <div class="modal-content">
-    <h2 class="modal-title">Welcome to OSINT Challenge</h2>
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="userName">Your Name</label>
-        <input type="text" id="userName" required autocomplete="name">
-      </div>
-      <div class="form-group">
-        <label for="userTeam">Team Name (Optional)</label>
-        <input type="text" id="userTeam" autocomplete="organization">
-      </div>
-      <button type="submit" class="form-submit">Start Challenge</button>
-      <div class="form-error" id="loginError"></div>
-    </form>
-  </div>
-</div>
-
-<!-- User Info Display -->
-<div class="user-info" id="userInfo">
-  <span id="userDisplay"></span>
-</div>
-
-<!-- Progress Dashboard Button -->
-<button class="dashboard-button" id="dashboardBtn" style="display: none;">
-  📊 Progress Dashboard
-</button>
-
-<!-- Progress Dashboard Modal -->
-<div class="dashboard-modal" id="dashboardModal">
-  <div class="dashboard-content">
-    <button class="close-dashboard" id="closeDashboard">×</button>
-    <h2 class="dashboard-title">OSINT Challenge Leaderboard</h2>
-    <div id="leaderboardContent">
-      <p style="text-align: center; color: #999;">Loading leaderboard...</p>
-    </div>
-  </div>
-</div>
-
-<div class="header">
-  <div class="briefing-container">
-    <button class="briefing-button" id="briefingBtn">📋Briefing</button>
-    <div class="briefing-dropdown" id="briefingDropdown">
-      <button class="briefing-close" id="briefingClose">✕</button>
-      <div class="briefing-title">Briefing</div>
-      <div class="briefing-content">
-        <p>Welcome to Lewis' OSINT Challenge. This challenge is supposed to test you on a variety of different OSINT techniques. Within your team it is highly likely if you smash your heads together that you will complete all 5 Tasks at hand.</p>
-        
-        <p>The challenge at hand will have you investigating a malicious threat actor that has compromised somebody's system and left a note. It is your job to gather as much information as possible on the individual and answer the questions accordingly. I highly recommend that you dig deeper than you think throughout this.</p>
-        
-        <div class="briefing-note">
-          <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to account holder and attempting brute-force attacks. Also, you get a NEW hint every time you get a wrong answer.
-
-          My final thing to note, testing this site in general, including checking its source code is deemed out of scope for this challenge. We want to encourage real-world OSINT skills, not source-diving
-        </div>
-        
-        <p>If you have any questions, please shout me over and i may offer a hint. And when you complete ALL the tasks shout me over to claim your prize...Good Luck</p>
-        
-        <div class="briefing-signature">- Lewis G</div>
-      </div>
-    </div>
-  </div>
-  
-  <h1>The OSINT Gauntlet</h1>
-  <p class="subtitle">Test your Open Source Intelligence skills</p>
-  
-  <div class="progress-container">
-    <div class="progress-bar">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <div class="progress-text" id="progressText">0 of 6 tasks completed</div>
-  </div>
-</div>
-
-<div class="hint-counter" id="hintCounter">
-  Hint <span class="shame-text">Counter of Shame</span>: <span id="hintCount">0</span>
-</div>
-
-<ul class="task-list" id="taskList"></ul>
-<canvas id="fireworks"></canvas>
-
-</div> <!-- End main-content -->
-
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-
-<script>
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyABxG0WEo6nJpVrxNGRLs-wLitFdMHTUt0",
-  authDomain: "osint-gauntlet.firebaseapp.com",
-  projectId: "osint-gauntlet",
-  storageBucket: "osint-gauntlet.firebasestorage.app",
-  messagingSenderId: "740657297987",
-  appId: "1:740657297987:web:a8bfe968918690da94f2f6"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-// Configuration
-const CONFIG = {
-  HASH_ROUNDS: 1000,
-  FIREWORKS_PARTICLES: 120,
-  ANIMATION_DURATION: 5000,
-  STORAGE_KEY: 'osint_challenge_progress'
-};
-
-// Session storage key for user persistence
-const SESSION_STORAGE_KEY = 'osint_challenge_user_session';
-
-// Current user state
-let currentUser = null;
-
-// Global achievements system
-const ACHIEVEMENTS = {
-  helping_hand: {
-    title: "Helping Hand (Cheater)",
-    description: "Used their First Hint.",
-    icon: "💡"
-  },
-  speedrun_hour: {
-    title: "ANY% Speed Run", 
-    description: "Has Complete the OSINT Gaunlet within an hour.",
-    icon: "⚡"
-  },
-  gauntlet_complete: {
-    title: "COMPLETED THE GAUNLET",
-    description: "Has Completed the OSINT Gaunlet.",
-    icon: "👑",
-    special: "gold" // Special styling
-  },
-  hint_addict: {
-    title: "This is getting embarassing...",
-    description: "Used more than 15 Hints.",
-    icon: "🤦"
-  },
-  wrong_king: {
-    title: "King of Getting Answers Wrong",
-    description: "Has had more than 5 Answers Wrong",
-    icon: "👑❌"
-  },
-  baby_steps: {
-    title: "Baby Steps",
-    description: "Completed Task 1!",
-    icon: "👶"
-  },
-  crypto_bro: {
-    title: "Crypto Bro",
-    description: "Completed Task 3 in 30 Minutes or Less",
-    icon: "₿"
-  },
-  no_hint_hero: {
-    title: "No Hint Hero",
-    description: "Complete a Task with no Hints",
-    icon: "🦸"
-  }
-};
-
-let achievementsListener = null;
-let userStartTime = null; // Track when user started
-let taskStartTimes = {}; // Track when each task was started
-let totalWrongAnswers = 0; // Track wrong answers
-
-// Enhanced SHA-256 hashing with salt
-async function sha256(str, salt = 'osint2024') {
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode((str.toLowerCase().trim() + salt));
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch (error) {
-    console.error('Hashing failed:', error);
-    return null;
-  }
-}
-
-// Input sanitization
-function sanitizeInput(input) {
-  return input.trim().replace(/[<>]/g, '');
-}
-
-// Enhanced tasks configuration with hints per question
-const tasks = [
-  {
-    id: 'task1',
-    title: 'Task 1: The Tip Off',
-    description: 'Analyse the provided image to identify the attacker',
-    questions: [
-      'What username does the attacker go by? (Click <a href="https://lewgys.github.io/The_OSINT_Gauntlet/images/pwnedletter.svg" data-original-path="/Users/beansbently/Desktop/Screenshots/pwned_note.png" data-uploaded-by="beansbently" target="_blank" rel="noopener noreferrer">here</a> to view the tip-off image.)'
-    ],
-    answers: ['beansbently'],
-    keys: 1,
-    hints: [
-      ['No hints on Task 1 nice try lol', 'Nice try, still no hints on Task 1...Unless you get it wrong again', 'I lied no Hints :)']
-    ]
-  },
-  {
-    id: 'task2',
-    title: 'Task 2: Recon',
-    description: 'Gather intelligence on the target',
-    questions: [
-      'What is the full email address of the attacker?',
-      'What is the attacker\'s full real name?'
-    ],
-    answers: ['beansbently1337@gmail.com', 'elliot alderson'],
-    keys: 2,
-    hints: [
-      ['Try searching the username on different platforms', 'Look for profile information on professional sites', 'GitHub'],
-      ['Social media profiles often contain real names', 'Look through social media', 'No more hints :)']
-    ]
-  },
-  {
-    id: 'task3',
-    title: 'Task 3: Cryptic Crypto',
-    description: 'Investigate cryptocurrency activities',
-    questions: [
-      'What Cryptocurrency does the attacker own a wallet for? (abbreviation of the crypto)',
-      'What is the attacker\'s cryptocurrency wallet address?',
-      'What mining pool did the attacker receive crypto from on January 23rd, 2021?',
-      'What other cryptocurrency did the attacker exchange with?'
-    ],
-    answers: ['eth', '0xa102397dbeebefd8cd2f73a89122fcdb53abb6ef', 'ethermine', 'tether'],
-    keys: 4,
-    hints: [
-      ['Look for cryptocurrency mentions in profiles', 'Check for wallet address files', 'ETH is a common cryptocurrency'],
-      ['Wallet addresses are long alphanumeric strings', 'Check social media profiles for addresses', 'Look Deeper into pre-existing files'],
-      ['Use blockchain explorers to trace transactions', 'Check transaction history for the date', 'Mining pools have identifiable names'],
-      ['Look at exchange transactions', 'Check what was traded for', 'No more hints :)']
-    ]
-  },
-  {
-    id: 'task4',
-    title: 'Task 4: Social Scrape',
-    description: 'Find current social media presence',
-    questions: [
-      'What is the attacker\'s current Twitter (X) handle?',
-      'At what company was the attacker last employed at?'
-    ],
-    answers: ['beansbentlyel', 'BEANS4U'],
-    keys: 2,
-    hints: [
-      ['Try variations of known usernames', 'Check for similar handles', 'No More Hints :)'],
-      ['Check professional networking sites', 'Look for employment history', 'What documents are usually found to have past experience?']
-    ]
-  },
-  {
-    id: 'task5',
-    title: 'Task 5: Air Miles',
-    description: 'Track travel movements',
-    questions: [
-      'What airport is closest to the location the attacker shared a photo from prior to getting on their flight? (Airport code)',
-      'What airport is the attacker having a layover at? (Airport code)'
-    ],
-    answers: ['dca', 'dxb'],
-    keys: 2,
-    hints: [
-      ['Look for landmarks in photos', 'Reverse Image Search is a good tool', 'No More Hints?'],
-      ['Anything stand out in the picture?', 'No More Hints :)', 'No More Hints :)']
-    ]
-  },
-  {
-    id: 'task6',
-    title: 'Task 6: Bonus Round',
-    description: 'Final challenge - Good Luck',
-    questions: [
-      'What is the mystery flag?',
-      'What building does the attacker live in?'
-    ],
-    answers: ['reconsile-object-heir-coal', 'stormveil castle'],
-    keys: 2,
-    hiddenUntil: 'task5',
-    hints: [
-      ['Delve Deeper into places you have already been', 'you need to DIG deeper', 'This is a bonus round, you do not get a third hint ;)'],
-      ['Sometimes the answer is hidden in plain sight', 'No More Hints :)', 'No More Hints :)']
-    ]
-  }
-];
-
-// Session management functions
-function loadUserSession() {
-  try {
-    const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!savedSession) return null;
-    
-    const session = JSON.parse(savedSession);
-    
-    // Check if session is recent (within 24 hours)
-    const sessionAge = Date.now() - session.timestamp;
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-    
-    if (sessionAge > maxAge) {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-      return null;
-    }
-    
-    return session;
-  } catch (error) {
-    console.error('Error loading session:', error);
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    return null;
-  }
-}
-
-function clearUserSession() {
-  localStorage.removeItem(SESSION_STORAGE_KEY);
-  currentUser = null;
-}
-
-// User Management
-async function saveUserToFirebase(name, team) {
-  try {
-    // Always create a new user entry (no checking for duplicates)
-    // This ensures each session is unique even if names are the same
-    const userRef = await db.collection('users').add({
-      name: name,
-      team: team || 'Solo',
-      startTime: firebase.firestore.FieldValue.serverTimestamp(),
-      lastActive: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    const userId = userRef.id;
-    
-    // Save session to localStorage with unique session ID
-    const userSession = {
-      id: userId,
-      name: name,
-      team: team || 'Solo',
-      timestamp: Date.now(),
-      sessionId: generateSessionId() // Add unique session identifier
-    };
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(userSession));
-    
-    return userId;
-  } catch (error) {
-    console.error('Error saving user:', error);
-    return null;
-  }
-}
-
-// Generate unique session ID
-function generateSessionId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-// Achievement Management
-async function unlockAchievement(achievementId, userId, userName, teamName) {
-  try {
-    console.log('Attempting to unlock achievement:', achievementId, 'for user:', userName, 'with ID:', userId);
-    
-    if (!ACHIEVEMENTS[achievementId]) {
-      console.warn('Achievement not found:', achievementId);
-      return;
-    }
-
-    if (!userId || !userName) {
-      console.error('Missing required parameters:', { userId, userName });
-      return;
-    }
-
-    // Check if user already has this achievement
-    const existingQuery = await db.collection('achievements')
-      .where('userId', '==', userId)
-      .where('achievementId', '==', achievementId)
-      .get();
-
-    if (!existingQuery.empty) {
-      console.log('User already has this achievement:', achievementId);
-      return; // User already has this achievement
-    }
-
-    console.log('Awarding achievement:', achievementId);
-    
-    // Award the achievement
-    await db.collection('achievements').add({
-      userId: userId,
-      userName: userName,
-      teamName: teamName || 'Solo',
-      achievementId: achievementId,
-      achievementTitle: ACHIEVEMENTS[achievementId].title,
-      achievementDescription: ACHIEVEMENTS[achievementId].description,
-      achievementIcon: ACHIEVEMENTS[achievementId].icon,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: new Date().toISOString()
-    });
-
-    console.log(`Achievement unlocked: ${achievementId} for ${userName}`);
-  } catch (error) {
-    console.error('Error unlocking achievement:', error);
-  }
-}
-
-// Real-time achievements listener
-function startAchievementsListener() {
-  const achievementsList = document.getElementById('achievementsList');
-  
-  console.log('Starting achievements listener...');
-  
-  achievementsListener = db.collection('achievements')
-    .orderBy('timestamp', 'desc')
-    .limit(20)
-    .onSnapshot((snapshot) => {
-      console.log('Achievements snapshot received, changes:', snapshot.docChanges().length);
-      
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const achievement = change.doc.data();
-          console.log('New achievement added:', achievement);
-          displayAchievement(achievement, achievementsList);
-        }
-      });
-    }, (error) => {
-      console.error('Error in achievements listener:', error);
-    });
-}
-
-function displayAchievement(achievement, container) {
-  // Remove placeholder if exists
-  const placeholder = container.querySelector('[style*="italic"]');
-  if (placeholder) {
-    placeholder.remove();
-  }
-
-  const achievementEl = document.createElement('div');
-  achievementEl.className = 'achievement-item new';
-  
-  // Add special styling for gold achievements
-  if (achievement.achievementId === 'gauntlet_complete') {
-    achievementEl.classList.add('gold');
-  }
-  
-  const timeAgo = getTimeAgo(achievement.createdAt);
-  
-  achievementEl.innerHTML = `
-    <div class="achievement-icon">${achievement.achievementIcon}</div>
-    <div class="achievement-time">${timeAgo}</div>
-    <div class="achievement-content">
-      <div class="achievement-user">${achievement.userName}${achievement.teamName !== 'Solo' ? ` (${achievement.teamName})` : ''} Unlocked an Achievement!</div>
-      <div class="achievement-title">${achievement.achievementTitle}</div>
-      <div class="achievement-description">${achievement.achievementDescription}</div>
-    </div>
-  `;
-  
-  // Insert at the top
-  container.insertBefore(achievementEl, container.firstChild);
-  
-  // Remove 'new' class after animation
-  setTimeout(() => {
-    achievementEl.classList.remove('new');
-  }, 2000);
-  
-  // Keep only latest 15 achievements visible
-  while (container.children.length > 15) {
-    container.removeChild(container.lastChild);
-  }
-}
-
-function getTimeAgo(timestamp) {
-  if (!timestamp) return 'now';
-  
-  const now = new Date();
-  const time = new Date(timestamp);
-  const diffMs = now - time;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  
-  if (diffMins < 1) return 'now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return time.toLocaleDateString();
-}
-
-// Check and award achievements based on user actions
-async function checkAchievements(context, data = {}) {
-  if (!currentUser) {
-    console.log('No current user for achievements:', currentUser);
-    return;
-  }
-  
-  console.log('Checking achievements:', context, data);
-  console.log('Current user object:', currentUser);
-  
-  // Extract user data - handle both old format (id, name, team) and new format (userId, userName, teamName)
-  const userId = currentUser.id || currentUser.userId;
-  const userName = currentUser.name || currentUser.userName;
-  const teamName = currentUser.team || currentUser.teamName;
-  
-  // Validate that we have all required user data
-  if (!userId || !userName) {
-    console.log('Missing required user data:', { userId, userName, currentUser });
-    return;
-  }
-  
-  console.log('Using user data:', { userId, userName, teamName });
-  
-  switch (context) {
-    case 'user_started':
-      // Record when user started the challenge
-      userStartTime = Date.now();
-      console.log('User started at:', userStartTime);
-      break;
-      
-    case 'task_started':
-      // Record when user started a specific task
-      if (data.taskId) {
-        taskStartTimes[data.taskId] = Date.now();
-        console.log('Task started:', data.taskId, 'at:', taskStartTimes[data.taskId]);
-      }
-      break;
-      
-    case 'task_completed':
-      console.log('Task completed:', data.taskId);
-      // Baby Steps - Complete Task 1
-      if (data.taskId === 'task1') {
-        await unlockAchievement('baby_steps', userId, userName, teamName);
-      }
-      
-      // Crypto Bro - Complete Task 3 in 30 minutes or less
-      if (data.taskId === 'task3') {
-        const taskStartTime = taskStartTimes['task3'];
-        if (taskStartTime) {
-          const timeSpent = (Date.now() - taskStartTime) / 1000 / 60; // minutes
-          console.log('Task 3 completed in:', timeSpent, 'minutes');
-          if (timeSpent <= 30) {
-            await unlockAchievement('crypto_bro', userId, userName, teamName);
-          }
-        }
-      }
-      
-      // No Hint Hero - Complete a task with no hints (one-time achievement)
-      if (data.taskHintsUsed === 0) {
-        console.log('Task completed with no hints');
-        await unlockAchievement('no_hint_hero', userId, userName, teamName);
-      }
-      
-      // COMPLETED THE GAUNTLET - Complete all tasks
-      if (data.completedCount === 6) {
-        await unlockAchievement('gauntlet_complete', userId, userName, teamName);
-        
-        // ANY% Speed Run - Complete within an hour
-        if (userStartTime) {
-          const totalTime = (Date.now() - userStartTime) / 1000 / 60 / 60; // hours
-          console.log('Total completion time:', totalTime, 'hours');
-          if (totalTime <= 1) {
-            await unlockAchievement('speedrun_hour', userId, userName, teamName);
-          }
-        }
-      }
-      break;
-      
-    case 'hint_used':
-      console.log('Hint used, total count:', data.hintCount);
-      // Helping Hand (Cheater) - Use first hint
-      if (data.hintCount === 1) {
-        console.log('First hint used - unlocking helping_hand');
-        await unlockAchievement('helping_hand', userId, userName, teamName);
-      }
-      
-      // This is getting embarrassing - Use more than 15 hints
-      if (data.hintCount > 15) {
-        console.log('More than 15 hints used - unlocking hint_addict');
-        await unlockAchievement('hint_addict', userId, userName, teamName);
-      }
-      break;
-      
-    case 'answer_wrong':
-      // King of Getting Answers Wrong - Have more than 5 wrong answers
-      totalWrongAnswers++;
-      console.log('Wrong answer, total count:', totalWrongAnswers);
-      if (totalWrongAnswers > 5) {
-        await unlockAchievement('wrong_king', userId, userName, teamName);
-      }
-      break;
-  }
-}
-
-async function updateUserProgress(userId, taskId, completed, hints, attempts) {
-  try {
-    await db.collection('progress').add({
-      userId: userId,
-      taskId: taskId,
-      completed: completed,
-      hintsUsed: hints,
-      attempts: attempts,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    // Update user's last active time
-    await db.collection('users').doc(userId).update({
-      lastActive: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    
-    // Update session timestamp to keep it fresh
-    const currentSession = loadUserSession();
-    if (currentSession && currentSession.id === userId) {
-      currentSession.timestamp = Date.now();
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentSession));
-    }
-  } catch (error) {
-    console.error('Error updating progress:', error);
-  }
-}
-
-async function loadLeaderboard() {
-  try {
-    const users = await db.collection('users').get();
-    const progress = await db.collection('progress').get();
-    
-    const userMap = {};
-    users.forEach(doc => {
-      userMap[doc.id] = { id: doc.id, ...doc.data(), completedTasks: 0, totalHints: 0 };
-    });
-    
-    progress.forEach(doc => {
-      const data = doc.data();
-      if (data.completed && userMap[data.userId]) {
-        userMap[data.userId].completedTasks++;
-        userMap[data.userId].totalHints += data.hintsUsed || 0;
-      }
-    });
-    
-    return Object.values(userMap).sort((a, b) => {
-      if (b.completedTasks !== a.completedTasks) {
-        return b.completedTasks - a.completedTasks;
-      }
-      return a.totalHints - b.totalHints;
-    });
-  } catch (error) {
-    console.error('Error loading leaderboard:', error);
-    return [];
-  }
-}
-
-// Login functionality
-document.addEventListener('DOMContentLoaded', () => {
-  const loginForm = document.getElementById('loginForm');
-  const loginModal = document.getElementById('loginModal');
-  const userInfo = document.getElementById('userInfo');
-  const userDisplay = document.getElementById('userDisplay');
-  const dashboardBtn = document.getElementById('dashboardBtn');
-  const dashboardModal = document.getElementById('dashboardModal');
-  const closeDashboard = document.getElementById('closeDashboard');
-  
-  // Check for existing session on page load
-  const existingSession = loadUserSession();
-  if (existingSession) {
-    // Restore user session
-    currentUser = existingSession;
-    loginModal.classList.remove('active');
-    userInfo.classList.add('active');
-    userDisplay.textContent = `${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
-    dashboardBtn.style.display = 'block';
-    
-    console.log('Restored user session:', currentUser);
-    
-    // Initialize the main challenge
-    new OSINTChallenge();
-    
-    // Start listening for achievements
-    startAchievementsListener();
-    
-    // Mark user as started for achievement tracking
-    checkAchievements('user_started');
-  }
-  }
-  
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const name = document.getElementById('userName').value.trim();
-    const team = document.getElementById('userTeam').value.trim();
-    
-    if (!name) {
-      document.getElementById('loginError').textContent = 'Please enter your name';
-      return;
-    }
-    
-    console.log('Attempting to save user:', name, team);
-    const userId = await saveUserToFirebase(name, team);
-    console.log('Received userId:', userId);
-    
-    if (userId) {
-      currentUser = { id: userId, name, team };
-      console.log('Set currentUser to:', currentUser);
-      
-      loginModal.classList.remove('active');
-      userInfo.classList.add('active');
-      userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
-      dashboardBtn.style.display = 'block';
-      
-      console.log('Set current user:', currentUser);
-      
-      // Initialize the main challenge
-      new OSINTChallenge();
-      
-      // Start listening for achievements
-      startAchievementsListener();
-      
-      // Mark user as started for achievement tracking
-      checkAchievements('user_started');
-    } else {
-      console.error('Failed to get userId');
-      document.getElementById('loginError').textContent = 'Error starting challenge. Please try again.';
-    }
-  });
-  });
-  
-  // Dashboard functionality
-  dashboardBtn.addEventListener('click', async () => {
-    dashboardModal.classList.add('active');
-    const leaderboardContent = document.getElementById('leaderboardContent');
-    leaderboardContent.innerHTML = '<p style="text-align: center; color: #999;">Loading leaderboard...</p>';
-    
-    const leaderboard = await loadLeaderboard();
-    
-    if (leaderboard.length === 0) {
-      leaderboardContent.innerHTML = '<p style="text-align: center; color: #999;">No progress data yet.</p>';
-      return;
-    }
-    
-    let html = `
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Name</th>
-            <th>Team</th>
-            <th>Tasks Completed</th>
-            <th>Hints Used</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-    
-    leaderboard.forEach((user, index) => {
-      const isCurrentUser = currentUser && user.id === currentUser.id;
-      html += `
-        <tr${isCurrentUser ? ' style="background: rgba(176, 211, 81, 0.1);"' : ''}>
-          <td>${index + 1}</td>
-          <td>${user.name}${isCurrentUser ? ' (You)' : ''}</td>
-          <td>${user.team || 'Solo'}</td>
-          <td>${user.completedTasks}/6</td>
-          <td>${user.totalHints}</td>
-        </tr>
-      `;
-    });
-    
-    html += '</tbody></table>';
-    leaderboardContent.innerHTML = html;
-  });
-  
-  closeDashboard.addEventListener('click', () => {
-    dashboardModal.classList.remove('active');
-  });
-  
-  // Briefing functionality
-  const briefingBtn = document.getElementById('briefingBtn');
-  const briefingDropdown = document.getElementById('briefingDropdown');
-  const briefingClose = document.getElementById('briefingClose');
-
-  function toggleBriefing() {
-    const isVisible = briefingDropdown.style.display === 'block';
-    briefingDropdown.style.display = isVisible ? 'none' : 'block';
-  }
-
-  function closeBriefing() {
-    briefingDropdown.style.display = 'none';
-  }
-
-  briefingBtn.addEventListener('click', toggleBriefing);
-  briefingClose.addEventListener('click', closeBriefing);
-
-  // Close briefing when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!briefingBtn.contains(e.target) && !briefingDropdown.contains(e.target)) {
-      closeBriefing();
-    }
-  });
-
-  // Close briefing on escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeBriefing();
-      if (dashboardModal.classList.contains('active')) {
-        dashboardModal.classList.remove('active');
-      }
-    }
-  });
-});
-
-// Game state management
-class OSINTChallenge {
-  constructor() {
-    this.completedTasks = this.loadProgress();
-    this.attemptCounts = {};
-    this.questionAttempts = {}; // Track attempts per question
-    this.hintClickCount = this.loadHintCount();
-    this.taskListEl = document.getElementById('taskList');
-    this.hintCountEl = document.getElementById('hintCount');
-    this.init();
-  }
-
-  init() {
-    this.checkIntegrity();
-    this.createTasksUI();
-    this.updateProgress();
-    this.updateHintCounter();
-  }
-
-  checkIntegrity() {
-    if (tasks.length !== 6) {
-      console.warn('Task integrity check failed');
-    }
-  }
-
-  loadProgress() {
-    try {
-      const saved = localStorage.getItem(CONFIG.STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch (e) {
-      console.error('Failed to load progress:', e);
-      return {};
-    }
-  }
-
-  loadHintCount() {
-    try {
-      const saved = localStorage.getItem(CONFIG.STORAGE_KEY + '_hints');
-      return saved ? parseInt(saved) : 0;
-    } catch (e) {
-      console.error('Failed to load hint count:', e);
-      return 0;
-    }
-  }
-
-  saveProgress() {
-    try {
-      localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(this.completedTasks));
-    } catch (e) {
-      console.error('Failed to save progress:', e);
-    }
-  }
-
-  saveHintCount() {
-    try {
-      localStorage.setItem(CONFIG.STORAGE_KEY + '_hints', this.hintClickCount.toString());
-    } catch (e) {
-      console.error('Failed to save hint count:', e);
-    }
-  }
-
-  updateHintCounter() {
-    if (this.hintCountEl) {
-      this.hintCountEl.textContent = this.hintClickCount;
-    }
-  }
-
-  updateProgress() {
-    const completed = Object.keys(this.completedTasks).length;
-    const isTask6Unlocked = this.completedTasks['task5'];
-    const visibleTotal = isTask6Unlocked ? 6 : 5;
-    const percentage = (completed / visibleTotal) * 100;
-    
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    
-    progressFill.style.width = `${percentage}%`;
-    progressText.textContent = `${completed} of ${visibleTotal} tasks completed`;
-    
-    if (isTask6Unlocked && !document.querySelector('[data-task-id="task6"]').style.display !== 'none') {
-      progressText.textContent += ' 🎁 Bonus task unlocked!';
-    }
-  }
-
-  createTasksUI() {
-    tasks.forEach((task, index) => {
-      const li = document.createElement('li');
-      li.classList.add('task');
-      li.dataset.taskId = task.id;
-      li.setAttribute('role', 'button');
-      li.setAttribute('tabindex', '0');
-
-      if (task.hiddenUntil && !this.completedTasks[task.hiddenUntil]) {
-        li.style.display = 'none';
-      }
-
-      if (this.completedTasks[task.id]) {
-        li.classList.add('completed');
-      }
-
-      const titleDiv = document.createElement('div');
-      titleDiv.className = 'task-title';
-      
-      const titleText = document.createElement('span');
-      titleText.textContent = task.title;
-      
-      const statusDiv = document.createElement('div');
-      statusDiv.className = 'task-status';
-      
-      const badge = document.createElement('span');
-      badge.className = 'task-badge';
-      
-      if (this.completedTasks[task.id]) {
-        badge.textContent = 'Completed';
-        badge.classList.add('completed');
-      } else if (index > 0 && !this.completedTasks[tasks[index - 1]?.id]) {
-        badge.textContent = 'Locked';
-        badge.classList.add('locked');
-        li.classList.add('locked');
-      } else {
-        badge.textContent = 'Available';
-      }
-      
-      const arrow = document.createElement('span');
-      arrow.className = 'arrow';
-      arrow.innerHTML = '▼';
-      
-      statusDiv.appendChild(badge);
-      statusDiv.appendChild(arrow);
-      titleDiv.appendChild(titleText);
-      titleDiv.appendChild(statusDiv);
-      li.appendChild(titleDiv);
-
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'task-content';
-
-      if (task.description) {
-        const descP = document.createElement('p');
-        descP.style.fontStyle = 'italic';
-        descP.style.color = '#999';
-        descP.style.marginBottom = '1rem';
-        descP.textContent = task.description;
-        contentDiv.appendChild(descP);
-      }
-
-      // Questions with individual hint buttons
-      task.questions.forEach((q, i) => {
-        const questionContainer = document.createElement('div');
-        questionContainer.className = 'question-container';
-        
-        const questionHeader = document.createElement('div');
-        questionHeader.className = 'question-header';
-        
-        const questionP = document.createElement('p');
-        questionP.className = 'question';
-        questionP.innerHTML = q;
-        
-        const hintBtn = document.createElement('button');
-        hintBtn.textContent = 'Hint';
-        hintBtn.className = 'hint-btn';
-        hintBtn.setAttribute('aria-label', `Show hint for question ${i + 1}`);
-        hintBtn.dataset.questionIndex = i;
-        
-        questionHeader.appendChild(questionP);
-        questionHeader.appendChild(hintBtn);
-        
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.autocomplete = 'off';
-        input.id = `${task.id}_q${i}`;
-        input.setAttribute('aria-label', `Answer for question ${i + 1}`);
-        
-        const hintText = document.createElement('div');
-        hintText.className = 'hint-text';
-        hintText.id = `${task.id}_hint${i}`;
-        
-        questionContainer.appendChild(questionHeader);
-        questionContainer.appendChild(input);
-        questionContainer.appendChild(hintText);
-        
-        contentDiv.appendChild(questionContainer);
-        
-        // Hint button handler
-        hintBtn.addEventListener('click', () => this.showQuestionHint(task, i, hintText, hintBtn));
-      });
-
-      // Submit button
-      const submitBtn = document.createElement('button');
-      submitBtn.textContent = 'Submit';
-      submitBtn.className = 'submit-btn';
-      submitBtn.setAttribute('aria-label', 'Submit answers');
-      contentDiv.appendChild(submitBtn);
-
-      // Feedback
-      const feedbackP = document.createElement('p');
-      feedbackP.className = 'feedback';
-      feedbackP.setAttribute('aria-live', 'polite');
-      contentDiv.appendChild(feedbackP);
-
-      li.appendChild(contentDiv);
-
-      // Event handlers
-      this.setupEventHandlers(li, task, index, submitBtn, feedbackP);
-
-      this.taskListEl.appendChild(li);
-    });
-  }
-
-  setupEventHandlers(li, task, index, submitBtn, feedbackP) {
-    const titleDiv = li.querySelector('.task-title');
-    const contentDiv = li.querySelector('.task-content');
-
-    const toggleTask = () => {
-      if (this.isTaskLocked(task, index)) {
-        this.showFeedback(feedbackP, 'You need to complete the previous task first!', 'error');
-        return;
-      }
-
-      if (task.hiddenUntil && !this.completedTasks[task.hiddenUntil]) {
-        this.showFeedback(feedbackP, 'This task is not yet available!', 'error');
-        return;
-      }
-
-      const isOpen = li.classList.contains('open');
-      
-      document.querySelectorAll('li.task.open').forEach(openLi => {
-        if (openLi !== li) {
-          openLi.classList.remove('open');
-          openLi.querySelector('.task-content').style.display = 'none';
-        }
-      });
-
-      if (isOpen) {
-        li.classList.remove('open');
-        contentDiv.style.display = 'none';
-      } else {
-        li.classList.add('open');
-        contentDiv.style.display = 'block';
-        contentDiv.querySelector('input')?.focus();
-        
-        // Mark task as started for achievement tracking
-        checkAchievements('task_started', { taskId: task.id });
-      }
-    };
-
-    titleDiv.addEventListener('click', toggleTask);
-    titleDiv.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleTask();
-      }
-    });
-
-    contentDiv.addEventListener('click', e => e.stopPropagation());
-
-    submitBtn.addEventListener('click', () => this.handleSubmit(task, feedbackP, submitBtn));
-
-    contentDiv.querySelectorAll('input').forEach(input => {
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          this.handleSubmit(task, feedbackP, submitBtn);
-        }
-      });
-    });
-  }
-
-  isTaskLocked(task, index) {
-    return index > 0 && !this.completedTasks[tasks[index - 1]?.id];
-  }
-
-  showQuestionHint(task, questionIndex, hintText, hintBtn) {
-    if (!task.hints || !task.hints[questionIndex]) return;
-    
-    // Initialize question attempts if not exists
-    const questionKey = `${task.id}_q${questionIndex}`;
-    if (!this.questionAttempts[questionKey]) {
-      this.questionAttempts[questionKey] = 0;
-    }
-    
-    const attemptCount = this.questionAttempts[questionKey];
-    const availableHints = task.hints[questionIndex];
-    const hintIndex = Math.min(attemptCount, availableHints.length - 1);
-    
-    if (hintText.style.display === 'block') {
-      hintText.style.display = 'none';
-      hintBtn.textContent = 'Hint';
-    } else {
-      // Increment hint counter
-      this.hintClickCount++;
-      this.saveHintCount();
-      this.updateHintCounter();
-      
-      // Check for hint achievements (add debugging)
-      console.log('Checking hint achievements, hint count:', this.hintClickCount);
-      checkAchievements('hint_used', { hintCount: this.hintClickCount });
-      
-      hintText.textContent = availableHints[hintIndex];
-      hintText.style.display = 'block';
-      hintBtn.textContent = 'Hide';
-    }
-  }
-
-  async handleSubmit(task, feedbackP, submitBtn) {
-    const inputs = Array.from(document.querySelectorAll(`input[id^="${task.id}_q"]`));
-    const answers = inputs.map(inp => sanitizeInput(inp.value));
-
-    if (answers.some(answer => !answer)) {
-      this.showFeedback(feedbackP, 'Please fill in all fields.', 'error');
-      return;
-    }
-
-    submitBtn.disabled = true;
-    submitBtn.classList.add('loading');
-    submitBtn.textContent = '';
-
-    try {
-      const results = await this.validateAnswersIndividually(task, answers);
-      const allCorrect = results.every(r => r);
-      
-      if (allCorrect) {
-        if (this.completedTasks[task.id]) {
-          this.showFeedback(feedbackP, 'Task already completed! 🎉', 'info');
-        } else {
-          this.completedTasks[task.id] = {
-            completed: true,
-            timestamp: new Date().toISOString(),
-            attempts: (this.attemptCounts[task.id] || 0) + 1
-          };
-          this.saveProgress();
-          this.showFeedback(feedbackP, 'Correct! Task completed! 🎉', 'success');
-          this.launchFireworks();
-          this.updateTaskStatus(task.id);
-          this.updateProgress();
-          this.unlockNextTask(task);
-          
-          // Check for task completion achievements
-          const taskHintsUsed = this.getTaskHintsUsed(task.id);
-          checkAchievements('task_completed', { 
-            taskId: task.id, 
-            completedCount: Object.keys(this.completedTasks).length,
-            attempts: this.attemptCounts[task.id] || 1,
-            hintsUsed: this.hintClickCount,
-            taskHintsUsed: taskHintsUsed
-          });
-          
-          // Update Firebase
-          if (currentUser) {
-            await updateUserProgress(
-              currentUser.id,
-              task.id,
-              true,
-              this.hintClickCount,
-              this.attemptCounts[task.id] || 1
-            );
-          }
-        }
-      } else {
-        // Increment attempt counts for incorrect questions
-        results.forEach((correct, index) => {
-          if (!correct) {
-            const questionKey = `${task.id}_q${index}`;
-            this.questionAttempts[questionKey] = (this.questionAttempts[questionKey] || 0) + 1;
-          }
-        });
-        
-        this.attemptCounts[task.id] = (this.attemptCounts[task.id] || 0) + 1;
-        
-        const incorrectCount = results.filter(r => !r).length;
-        this.showFeedback(feedbackP, `${incorrectCount} answer(s) incorrect. Check the hints for help!`, 'error');
-        
-        // Track wrong answers for achievements
-        checkAchievements('answer_wrong', { wrongCount: incorrectCount });
-      }
-    } catch (error) {
-      this.showFeedback(feedbackP, 'An error occurred. Please try again.', 'error');
-      console.error('Validation error:', error);
-    } finally {
-      setTimeout(() => {
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('loading');
-        submitBtn.textContent = 'Submit';
-      }, 1000);
-    }
-  }
-
-  async validateAnswersIndividually(task, userAnswers) {
-    if (userAnswers.length !== task.answers.length) return Array(task.answers.length).fill(false);
-
-    const results = [];
-    for (let i = 0; i < userAnswers.length; i++) {
-      const userHash = await sha256(userAnswers[i]);
-      const correctHash = await sha256(task.answers[i]);
-      results.push(userHash === correctHash);
-    }
-    return results;
-  }
-
-  // Helper method to count hints used for a specific task
-  getTaskHintsUsed(taskId) {
-    let taskHints = 0;
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return 0;
-    
-    for (let i = 0; i < task.questions.length; i++) {
-      const questionKey = `${taskId}_q${i}`;
-      taskHints += this.questionAttempts[questionKey] || 0;
-    }
-    return taskHints;
-  }
-
-  showFeedback(feedbackEl, message, type) {
-    feedbackEl.textContent = message;
-    feedbackEl.className = `feedback ${type}`;
-  }
-
-  updateTaskStatus(taskId) {
-    const taskEl = document.querySelector(`[data-task-id="${taskId}"]`);
-    if (taskEl) {
-      taskEl.classList.add('completed');
-      const badge = taskEl.querySelector('.task-badge');
-      badge.textContent = 'Completed';
-      badge.classList.add('completed');
-    }
-  }
-
-  unlockNextTask(currentTask) {
-    const currentIndex = tasks.findIndex(t => t.id === currentTask.id);
-    if (currentIndex < tasks.length - 1) {
-      const nextTask = tasks[currentIndex + 1];
-      const nextTaskEl = document.querySelector(`[data-task-id="${nextTask.id}"]`);
-      if (nextTaskEl) {
-        nextTaskEl.style.display = 'list-item';
-        nextTaskEl.classList.remove('locked');
-        const badge = nextTaskEl.querySelector('.task-badge');
-        badge.textContent = 'Available';
-        badge.classList.remove('locked');
-      }
-    }
-
-    tasks.forEach(task => {
-      if (task.hiddenUntil === currentTask.id) {
-        const hiddenTaskEl = document.querySelector(`[data-task-id="${task.id}"]`);
-        if (hiddenTaskEl) {
-          hiddenTaskEl.style.display = 'list-item';
-          hiddenTaskEl.classList.add('bonus');
-        }
-      }
-    });
-  }
-
-  launchFireworks() {
-    const canvas = document.getElementById('fireworks');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const particles = Array.from({ length: CONFIG.FIREWORKS_PARTICLES }, () => ({
-      x: canvas.width / 2 + (Math.random() - 0.5) * 200,
-      y: canvas.height / 2 + (Math.random() - 0.5) * 200,
-      radius: Math.random() * 4 + 1,
-      color: `hsl(${Math.random() * 360}, 100%, 60%)`,
-      angle: Math.random() * 2 * Math.PI,
-      speed: Math.random() * 8 + 3,
-      alpha: 1,
-      decay: 0.015 + Math.random() * 0.02,
-      gravity: 0.1
-    }));
-
-    function animate() {
-      ctx.fillStyle = 'rgba(0,0,0,0.1)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      particles.forEach((particle, index) => {
-        particle.x += Math.cos(particle.angle) * particle.speed;
-        particle.y += Math.sin(particle.angle) * particle.speed + particle.gravity;
-        particle.speed *= 0.99;
-        particle.alpha -= particle.decay;
-        particle.gravity += 0.02;
-
-        if (particle.alpha <= 0) {
-          particles.splice(index, 1);
-          return;
-        }
-
-        ctx.save();
-        ctx.globalAlpha = particle.alpha;
-        ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.radius, 0, 2 * Math.PI);
-        ctx.fillStyle = particle.color;
-        ctx.fill();
-        ctx.restore();
-      });
-
-      if (particles.length > 0) {
-        requestAnimationFrame(animate);
-      } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    }
-
-    animate();
-    
-    setTimeout(() => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }, CONFIG.ANIMATION_DURATION);
-  }
-}
-
-window.addEventListener('resize', () => {
-  const canvas = document.getElementById('fireworks');
-  if (canvas) {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('li.task.open').forEach(li => {
-      li.classList.remove('open');
-      li.querySelector('.task-content').style.display = 'none';
-    });
-  }
-});
-
-setInterval(() => {
-  if (tasks.length !== 6) {
-    console.warn('Task integrity compromised');
-  }
-}, 5000);
-
-console.log(`
-  ╔═══════════════════════════════════╗
-  ║        OSINT Challenge            ║
-  ║                                   ║
-  ║   Looking for shortcuts? 🕵️       ║
-  ║   That's not very OSINT of you!   ║
-  ║                                   ║
-  ║   Happy investigating! 🔍         ║
-  ╚═══════════════════════════════════╝
-`);
-
-</script>
-
-</body>
-</html>
+  <div class="modal-
