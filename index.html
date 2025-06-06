@@ -1324,8 +1324,15 @@ function generateSessionId() {
 // Achievement Management
 async function unlockAchievement(achievementId, userId, userName, teamName) {
   try {
+    console.log('Attempting to unlock achievement:', achievementId, 'for user:', userName, 'with ID:', userId);
+    
     if (!ACHIEVEMENTS[achievementId]) {
       console.warn('Achievement not found:', achievementId);
+      return;
+    }
+
+    if (!userId || !userName) {
+      console.error('Missing required parameters:', { userId, userName });
       return;
     }
 
@@ -1336,9 +1343,12 @@ async function unlockAchievement(achievementId, userId, userName, teamName) {
       .get();
 
     if (!existingQuery.empty) {
+      console.log('User already has this achievement:', achievementId);
       return; // User already has this achievement
     }
 
+    console.log('Awarding achievement:', achievementId);
+    
     // Award the achievement
     await db.collection('achievements').add({
       userId: userId,
@@ -1362,16 +1372,23 @@ async function unlockAchievement(achievementId, userId, userName, teamName) {
 function startAchievementsListener() {
   const achievementsList = document.getElementById('achievementsList');
   
+  console.log('Starting achievements listener...');
+  
   achievementsListener = db.collection('achievements')
     .orderBy('timestamp', 'desc')
     .limit(20)
     .onSnapshot((snapshot) => {
+      console.log('Achievements snapshot received, changes:', snapshot.docChanges().length);
+      
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
           const achievement = change.doc.data();
+          console.log('New achievement added:', achievement);
           displayAchievement(achievement, achievementsList);
         }
       });
+    }, (error) => {
+      console.error('Error in achievements listener:', error);
     });
 }
 
@@ -1433,24 +1450,37 @@ function getTimeAgo(timestamp) {
 
 // Check and award achievements based on user actions
 async function checkAchievements(context, data = {}) {
-  if (!currentUser) return;
+  if (!currentUser || !currentUser.id) {
+    console.log('No current user or user ID for achievements:', currentUser);
+    return;
+  }
   
+  console.log('Checking achievements:', context, data);
   const { userName, teamName, userId } = currentUser;
+  
+  // Validate that we have all required user data
+  if (!userId || !userName) {
+    console.log('Missing required user data:', { userId, userName });
+    return;
+  }
   
   switch (context) {
     case 'user_started':
       // Record when user started the challenge
       userStartTime = Date.now();
+      console.log('User started at:', userStartTime);
       break;
       
     case 'task_started':
       // Record when user started a specific task
       if (data.taskId) {
         taskStartTimes[data.taskId] = Date.now();
+        console.log('Task started:', data.taskId, 'at:', taskStartTimes[data.taskId]);
       }
       break;
       
     case 'task_completed':
+      console.log('Task completed:', data.taskId);
       // Baby Steps - Complete Task 1
       if (data.taskId === 'task1') {
         await unlockAchievement('baby_steps', userId, userName, teamName);
@@ -1461,6 +1491,7 @@ async function checkAchievements(context, data = {}) {
         const taskStartTime = taskStartTimes['task3'];
         if (taskStartTime) {
           const timeSpent = (Date.now() - taskStartTime) / 1000 / 60; // minutes
+          console.log('Task 3 completed in:', timeSpent, 'minutes');
           if (timeSpent <= 30) {
             await unlockAchievement('crypto_bro', userId, userName, teamName);
           }
@@ -1469,6 +1500,7 @@ async function checkAchievements(context, data = {}) {
       
       // No Hint Hero - Complete a task with no hints (one-time achievement)
       if (data.taskHintsUsed === 0) {
+        console.log('Task completed with no hints');
         await unlockAchievement('no_hint_hero', userId, userName, teamName);
       }
       
@@ -1479,6 +1511,7 @@ async function checkAchievements(context, data = {}) {
         // ANY% Speed Run - Complete within an hour
         if (userStartTime) {
           const totalTime = (Date.now() - userStartTime) / 1000 / 60 / 60; // hours
+          console.log('Total completion time:', totalTime, 'hours');
           if (totalTime <= 1) {
             await unlockAchievement('speedrun_hour', userId, userName, teamName);
           }
@@ -1487,13 +1520,16 @@ async function checkAchievements(context, data = {}) {
       break;
       
     case 'hint_used':
+      console.log('Hint used, total count:', data.hintCount);
       // Helping Hand (Cheater) - Use first hint
       if (data.hintCount === 1) {
+        console.log('First hint used - unlocking helping_hand');
         await unlockAchievement('helping_hand', userId, userName, teamName);
       }
       
       // This is getting embarrassing - Use more than 15 hints
       if (data.hintCount > 15) {
+        console.log('More than 15 hints used - unlocking hint_addict');
         await unlockAchievement('hint_addict', userId, userName, teamName);
       }
       break;
@@ -1501,6 +1537,7 @@ async function checkAchievements(context, data = {}) {
     case 'answer_wrong':
       // King of Getting Answers Wrong - Have more than 5 wrong answers
       totalWrongAnswers++;
+      console.log('Wrong answer, total count:', totalWrongAnswers);
       if (totalWrongAnswers > 5) {
         await unlockAchievement('wrong_king', userId, userName, teamName);
       }
@@ -2003,7 +2040,8 @@ class OSINTChallenge {
       this.saveHintCount();
       this.updateHintCounter();
       
-      // Check for hint achievements
+      // Check for hint achievements (add debugging)
+      console.log('Checking hint achievements, hint count:', this.hintClickCount);
       checkAchievements('hint_used', { hintCount: this.hintClickCount });
       
       hintText.textContent = availableHints[hintIndex];
