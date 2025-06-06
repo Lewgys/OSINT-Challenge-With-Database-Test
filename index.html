@@ -1450,19 +1450,26 @@ function getTimeAgo(timestamp) {
 
 // Check and award achievements based on user actions
 async function checkAchievements(context, data = {}) {
-  if (!currentUser || !currentUser.id) {
-    console.log('No current user or user ID for achievements:', currentUser);
+  if (!currentUser) {
+    console.log('No current user for achievements:', currentUser);
     return;
   }
   
   console.log('Checking achievements:', context, data);
-  const { userName, teamName, userId } = currentUser;
+  console.log('Current user object:', currentUser);
+  
+  // Extract user data - handle both old format (id, name, team) and new format (userId, userName, teamName)
+  const userId = currentUser.id || currentUser.userId;
+  const userName = currentUser.name || currentUser.userName;
+  const teamName = currentUser.team || currentUser.teamName;
   
   // Validate that we have all required user data
   if (!userId || !userName) {
-    console.log('Missing required user data:', { userId, userName });
+    console.log('Missing required user data:', { userId, userName, currentUser });
     return;
   }
+  
+  console.log('Using user data:', { userId, userName, teamName });
   
   switch (context) {
     case 'user_started':
@@ -1622,6 +1629,8 @@ document.addEventListener('DOMContentLoaded', () => {
     userDisplay.textContent = `${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
     dashboardBtn.style.display = 'block';
     
+    console.log('Restored user session:', currentUser);
+    
     // Initialize the main challenge
     new OSINTChallenge();
     
@@ -1630,6 +1639,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Mark user as started for achievement tracking
     checkAchievements('user_started');
+  }
   }
   
   loginForm.addEventListener('submit', async (e) => {
@@ -1651,6 +1661,8 @@ document.addEventListener('DOMContentLoaded', () => {
       userInfo.classList.add('active');
       userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
       dashboardBtn.style.display = 'block';
+      
+      console.log('Set current user:', currentUser);
       
       // Initialize the main challenge
       new OSINTChallenge();
