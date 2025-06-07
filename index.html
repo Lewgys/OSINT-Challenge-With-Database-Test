@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1131,7 +1132,6 @@ const ACHIEVEMENTS = {
     title: "No Hint Hero",
     description: "Complete a Task with no Hints",
     icon: "🦸"
-    // Removed oneTime flag - now each user can get it once
   }
 };
 
@@ -1139,6 +1139,7 @@ let achievementsListener = null;
 let userStartTime = null; // Track when user started
 let taskStartTimes = {}; // Track when each task was started
 let totalWrongAnswers = 0; // Track wrong answers
+let gameInstance = null; // Store the game instance globally
 
 // Enhanced SHA-256 hashing with salt
 async function sha256(str, salt = 'osint2024') {
@@ -1290,7 +1291,6 @@ function clearUserSession() {
 async function saveUserToFirebase(name, team) {
   try {
     // Always create a new user entry (no checking for duplicates)
-    // This ensures each session is unique even if names are the same
     const userRef = await db.collection('users').add({
       name: name,
       team: team || 'Solo',
@@ -1321,7 +1321,7 @@ function generateSessionId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Achievement Management
+// Achievement Management - Fixed version
 async function unlockAchievement(achievementId, userId, userName, teamName) {
   try {
     console.log('Attempting to unlock achievement:', achievementId, 'for user:', userName, 'with ID:', userId);
@@ -1349,7 +1349,7 @@ async function unlockAchievement(achievementId, userId, userName, teamName) {
 
     console.log('Awarding achievement:', achievementId);
     
-    // Award the achievement
+    // Award the achievement with proper timestamp
     await db.collection('achievements').add({
       userId: userId,
       userName: userName,
@@ -1358,8 +1358,7 @@ async function unlockAchievement(achievementId, userId, userName, teamName) {
       achievementTitle: ACHIEVEMENTS[achievementId].title,
       achievementDescription: ACHIEVEMENTS[achievementId].description,
       achievementIcon: ACHIEVEMENTS[achievementId].icon,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: new Date().toISOString()
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
 
     console.log(`Achievement unlocked: ${achievementId} for ${userName}`);
@@ -1368,7 +1367,7 @@ async function unlockAchievement(achievementId, userId, userName, teamName) {
   }
 }
 
-// Real-time achievements listener
+// Real-time achievements listener - Fixed version
 function startAchievementsListener() {
   const achievementsList = document.getElementById('achievementsList');
   
@@ -1383,7 +1382,12 @@ function startAchievementsListener() {
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
           const achievement = change.doc.data();
+          const docId = change.doc.id;
           console.log('New achievement added:', achievement);
+          
+          // Add the document ID to the achievement data
+          achievement.docId = docId;
+          
           displayAchievement(achievement, achievementsList);
         }
       });
@@ -1392,6 +1396,7 @@ function startAchievementsListener() {
     });
 }
 
+// Fixed displayAchievement function
 function displayAchievement(achievement, container) {
   // Remove placeholder if exists
   const placeholder = container.querySelector('[style*="italic"]');
@@ -1399,15 +1404,25 @@ function displayAchievement(achievement, container) {
     placeholder.remove();
   }
 
+  // Check if this achievement already exists in the DOM
+  if (achievement.docId && container.querySelector(`[data-doc-id="${achievement.docId}"]`)) {
+    console.log('Achievement already displayed:', achievement.docId);
+    return;
+  }
+
   const achievementEl = document.createElement('div');
   achievementEl.className = 'achievement-item new';
+  if (achievement.docId) {
+    achievementEl.setAttribute('data-doc-id', achievement.docId);
+  }
   
   // Add special styling for gold achievements
   if (achievement.achievementId === 'gauntlet_complete') {
     achievementEl.classList.add('gold');
   }
   
-  const timeAgo = getTimeAgo(achievement.createdAt);
+  // Get time ago - handle both timestamp formats
+  const timeAgo = getTimeAgo(achievement.timestamp);
   
   achievementEl.innerHTML = `
     <div class="achievement-icon">${achievement.achievementIcon}</div>
@@ -1433,11 +1448,24 @@ function displayAchievement(achievement, container) {
   }
 }
 
+// Fixed getTimeAgo function to handle Firebase timestamps
 function getTimeAgo(timestamp) {
   if (!timestamp) return 'now';
   
   const now = new Date();
-  const time = new Date(timestamp);
+  let time;
+  
+  // Handle Firebase Timestamp
+  if (timestamp && timestamp.toDate) {
+    time = timestamp.toDate();
+  } else if (timestamp && timestamp.seconds) {
+    time = new Date(timestamp.seconds * 1000);
+  } else if (typeof timestamp === 'string') {
+    time = new Date(timestamp);
+  } else {
+    return 'now';
+  }
+  
   const diffMs = now - time;
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
@@ -1448,7 +1476,7 @@ function getTimeAgo(timestamp) {
   return time.toLocaleDateString();
 }
 
-// Check and award achievements based on user actions
+// Fixed checkAchievements function
 async function checkAchievements(context, data = {}) {
   if (!currentUser || !currentUser.id) {
     console.log('No current user or user ID for achievements:', currentUser);
@@ -1456,7 +1484,7 @@ async function checkAchievements(context, data = {}) {
   }
   
   console.log('Checking achievements:', context, data);
-  const { userName, teamName, userId } = currentUser;
+  const { name: userName, team: teamName, id: userId } = currentUser;
   
   // Validate that we have all required user data
   if (!userId || !userName) {
@@ -1498,7 +1526,7 @@ async function checkAchievements(context, data = {}) {
         }
       }
       
-      // No Hint Hero - Complete a task with no hints (one-time achievement)
+      // No Hint Hero - Complete a task with no hints
       if (data.taskHintsUsed === 0) {
         console.log('Task completed with no hints');
         await unlockAchievement('no_hint_hero', userId, userName, teamName);
@@ -1623,7 +1651,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dashboardBtn.style.display = 'block';
     
     // Initialize the main challenge
-    new OSINTChallenge();
+    gameInstance = new OSINTChallenge();
     
     // Start listening for achievements
     startAchievementsListener();
@@ -1653,7 +1681,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dashboardBtn.style.display = 'block';
       
       // Initialize the main challenge
-      new OSINTChallenge();
+      gameInstance = new OSINTChallenge();
       
       // Start listening for achievements
       startAchievementsListener();
@@ -1755,6 +1783,7 @@ class OSINTChallenge {
     this.attemptCounts = {};
     this.questionAttempts = {}; // Track attempts per question
     this.hintClickCount = this.loadHintCount();
+    this.taskHintsUsed = {}; // Track hints used per task
     this.taskListEl = document.getElementById('taskList');
     this.hintCountEl = document.getElementById('hintCount');
     this.init();
@@ -1892,6 +1921,9 @@ class OSINTChallenge {
         descP.textContent = task.description;
         contentDiv.appendChild(descP);
       }
+
+      // Initialize task hints counter
+      this.taskHintsUsed[task.id] = 0;
 
       // Questions with individual hint buttons
       task.questions.forEach((q, i) => {
@@ -2037,10 +2069,11 @@ class OSINTChallenge {
     } else {
       // Increment hint counter
       this.hintClickCount++;
+      this.taskHintsUsed[task.id]++;
       this.saveHintCount();
       this.updateHintCounter();
       
-      // Check for hint achievements (add debugging)
+      // Check for hint achievements
       console.log('Checking hint achievements, hint count:', this.hintClickCount);
       checkAchievements('hint_used', { hintCount: this.hintClickCount });
       
@@ -2084,7 +2117,7 @@ class OSINTChallenge {
           this.unlockNextTask(task);
           
           // Check for task completion achievements
-          const taskHintsUsed = this.getTaskHintsUsed(task.id);
+          const taskHintsUsed = this.taskHintsUsed[task.id] || 0;
           checkAchievements('task_completed', { 
             taskId: task.id, 
             completedCount: Object.keys(this.completedTasks).length,
@@ -2143,19 +2176,6 @@ class OSINTChallenge {
       results.push(userHash === correctHash);
     }
     return results;
-  }
-
-  // Helper method to count hints used for a specific task
-  getTaskHintsUsed(taskId) {
-    let taskHints = 0;
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return 0;
-    
-    for (let i = 0; i < task.questions.length; i++) {
-      const questionKey = `${taskId}_q${i}`;
-      taskHints += this.questionAttempts[questionKey] || 0;
-    }
-    return taskHints;
   }
 
   showFeedback(feedbackEl, message, type) {
