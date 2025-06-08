@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="description" content="Interactive OSINT Challenge - Test your open source intelligence skills">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com;">
-<title>OSINT Challenge</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://Lewgys--aa56c8f844a711f0b0d776b3cceeab13.web.val.run;"><title>OSINT Challenge</title>
 <style>
   * {
     box-sizing: border-box;
@@ -1020,12 +1018,12 @@
       <button class="briefing-close" id="briefingClose">✕</button>
       <div class="briefing-title">Briefing</div>
       <div class="briefing-content">
-        <p>Welcome to Lewis' OSINT Challenge. This challenge is supposed to test you on a variety of different OSINT techniques. Within your team it is highly likely if you smash your heads together that you will complete all 5 Tasks at hand.</p>
+        <p>Welcome to Lewis' OSINT Challenge. This challenge is supposed to test you on a variety of different OSINT techniques. Within your team, it is highly likely that if you smash your heads together, you will complete all 5 Tasks at hand.</p>
         
         <p>The challenge at hand will have you investigating a malicious threat actor that has compromised somebody's system and left a note. It is your job to gather as much information as possible on the individual and answer the questions accordingly. I highly recommend that you dig deeper than you think throughout this.</p>
         
         <div class="briefing-note">
-          <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to account holder and attempting brute-force attacks. Also, you get a NEW hint every time you get a wrong answer.
+          <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to the account holder and attempting brute-force attacks. Also, you get a NEW hint every time you get a wrong answer.
 
           My final thing to note, testing this site in general, including checking its source code is deemed out of scope for this challenge. We want to encourage real-world OSINT skills, not source-diving
         </div>
@@ -1099,17 +1097,18 @@ const ACHIEVEMENTS = {
   },
   speedrun_hour: {
     title: "ANY% Speed Run", 
-    description: "Has Complete the OSINT Gaunlet within an hour.",
-    icon: "⚡"
+    description: "Has completed the OSINT Gauntlet within an hour.",
+    icon: "⚡",
+    special: "gold" // Special Styling
   },
   gauntlet_complete: {
     title: "COMPLETED THE GAUNLET",
-    description: "Has Completed the OSINT Gaunlet.",
+    description: "Has Completed the OSINT Gauntlet.",
     icon: "👑",
     special: "gold" // Special styling
   },
   hint_addict: {
-    title: "This is getting embarassing...",
+    title: "This is getting embarrassing...",
     description: "Used more than 15 Hints.",
     icon: "🤦"
   },
@@ -1229,7 +1228,7 @@ const tasks = [
     title: 'Task 5: Air Miles',
     description: 'Track travel movements',
     questions: [
-      'What airport is closest to the location the attacker shared a photo from prior to getting on their flight? (Airport code)',
+      'What airport is closest to the location where the attacker shared a photo prior to getting on their flight? (Airport code)',
       'What airport is the attacker having a layover at? (Airport code)'
     ],
     answers: ['dca', 'dxb'],
@@ -1573,17 +1572,26 @@ async function checkAchievements(context, data = {}) {
   }
 }
 
+// FIXED: Updated user progress tracking with single document per user
 async function updateUserProgress(userId, taskId, completed, hints, attempts) {
   try {
-    await db.collection('progress').add({
+    // Use a single document per user in userProgress collection
+    const userProgressRef = db.collection('userProgress').doc(userId);
+    
+    await userProgressRef.set({
       userId: userId,
-      taskId: taskId,
-      completed: completed,
-      hintsUsed: hints,
-      attempts: attempts,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
+      totalHints: hints,  // Store the current TOTAL hints
+      completedTasks: firebase.firestore.FieldValue.arrayUnion(taskId), // Track completed tasks
+      tasks: {
+        [taskId]: {
+          completed: completed,
+          attempts: attempts,
+          completedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }
+      },
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    
     // Update user's last active time
     await db.collection('users').doc(userId).update({
       lastActive: firebase.firestore.FieldValue.serverTimestamp()
@@ -1600,35 +1608,141 @@ async function updateUserProgress(userId, taskId, completed, hints, attempts) {
   }
 }
 
+// FIXED: Updated leaderboard to work with both old and new structures
 async function loadLeaderboard() {
   try {
     const users = await db.collection('users').get();
-    const progress = await db.collection('progress').get();
     
-    const userMap = {};
-    users.forEach(doc => {
-      userMap[doc.id] = { id: doc.id, ...doc.data(), completedTasks: 0, totalHints: 0 };
-    });
+    // Try to get new userProgress collection
+    const userProgress = await db.collection('userProgress').get();
     
-    progress.forEach(doc => {
-      const data = doc.data();
-      if (data.completed && userMap[data.userId]) {
-        userMap[data.userId].completedTasks++;
-        userMap[data.userId].totalHints += data.hintsUsed || 0;
-      }
-    });
-    
-    return Object.values(userMap).sort((a, b) => {
-      if (b.completedTasks !== a.completedTasks) {
-        return b.completedTasks - a.completedTasks;
-      }
-      return a.totalHints - b.totalHints;
-    });
+    // If no new structure data, fall back to old structure
+    if (userProgress.empty) {
+      console.log('No userProgress data found, using old progress structure');
+      
+      // OLD STRUCTURE SUPPORT
+      const progress = await db.collection('progress').get();
+      
+      const userMap = {};
+      users.forEach(doc => {
+        userMap[doc.id] = { id: doc.id, ...doc.data(), completedTasks: 0, totalHints: 0 };
+      });
+      
+      // Process old structure
+      const hintsPerUser = {}; // Track max hints per user
+      progress.forEach(doc => {
+        const data = doc.data();
+        if (data.completed && userMap[data.userId]) {
+          userMap[data.userId].completedTasks++;
+          // Use MAX hints value instead of summing
+          hintsPerUser[data.userId] = Math.max(
+            hintsPerUser[data.userId] || 0,
+            data.hintsUsed || 0
+          );
+        }
+      });
+      
+      // Apply the max hints to each user
+      Object.keys(hintsPerUser).forEach(userId => {
+        if (userMap[userId]) {
+          userMap[userId].totalHints = hintsPerUser[userId];
+        }
+      });
+      
+      return Object.values(userMap).sort((a, b) => {
+        if (b.completedTasks !== a.completedTasks) {
+          return b.completedTasks - a.completedTasks;
+        }
+        return a.totalHints - b.totalHints;
+      });
+    } else {
+      // NEW STRUCTURE
+      console.log('Using new userProgress structure');
+      
+      const progressMap = {};
+      userProgress.forEach(doc => {
+        progressMap[doc.id] = doc.data();
+      });
+      
+      const leaderboard = [];
+      users.forEach(doc => {
+        const userData = doc.data();
+        const progress = progressMap[doc.id] || {};
+        
+        leaderboard.push({
+          id: doc.id,
+          ...userData,
+          completedTasks: (progress.completedTasks || []).length,
+          totalHints: progress.totalHints || 0
+        });
+      });
+      
+      return leaderboard.sort((a, b) => {
+        if (b.completedTasks !== a.completedTasks) {
+          return b.completedTasks - a.completedTasks;
+        }
+        return a.totalHints - b.totalHints;
+      });
+    }
   } catch (error) {
     console.error('Error loading leaderboard:', error);
     return [];
   }
 }
+
+// Optional: Migration function to convert old data to new structure
+async function migrateProgressData() {
+  try {
+    console.log('Starting progress data migration...');
+    
+    const users = await db.collection('users').get();
+    const oldProgress = await db.collection('progress').get();
+    
+    // Group old progress by user
+    const userProgressMap = {};
+    oldProgress.forEach(doc => {
+      const data = doc.data();
+      if (!userProgressMap[data.userId]) {
+        userProgressMap[data.userId] = {
+          completedTasks: [],
+          tasks: {},
+          maxHints: 0
+        };
+      }
+      
+      if (data.completed) {
+        userProgressMap[data.userId].completedTasks.push(data.taskId);
+        userProgressMap[data.userId].tasks[data.taskId] = {
+          completed: true,
+          attempts: data.attempts || 1,
+          completedAt: data.timestamp
+        };
+        userProgressMap[data.userId].maxHints = Math.max(
+          userProgressMap[data.userId].maxHints,
+          data.hintsUsed || 0
+        );
+      }
+    });
+    
+    // Write to new structure
+    for (const [userId, progressData] of Object.entries(userProgressMap)) {
+      await db.collection('userProgress').doc(userId).set({
+        userId: userId,
+        totalHints: progressData.maxHints,
+        completedTasks: progressData.completedTasks,
+        tasks: progressData.tasks,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`Migrated user ${userId}`);
+    }
+    
+    console.log('Migration complete!');
+  } catch (error) {
+    console.error('Migration error:', error);
+  }
+}
+// To run migration, uncomment the next line and refresh once:
+// migrateProgressData();
 
 // Login functionality
 document.addEventListener('DOMContentLoaded', () => {
@@ -1650,7 +1764,7 @@ document.addEventListener('DOMContentLoaded', () => {
     userDisplay.textContent = `${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
     dashboardBtn.style.display = 'block';
     
-    // Initialize the main challenge
+    //Initialise the main challenge
     gameInstance = new OSINTChallenge();
     
     // Start listening for achievements
@@ -1680,7 +1794,7 @@ document.addEventListener('DOMContentLoaded', () => {
       userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
       dashboardBtn.style.display = 'block';
       
-      // Initialize the main challenge
+      //Initialise the main challenge
       gameInstance = new OSINTChallenge();
       
       // Start listening for achievements
@@ -1922,7 +2036,7 @@ class OSINTChallenge {
         contentDiv.appendChild(descP);
       }
 
-      // Initialize task hints counter
+      //Initialise task hints counter
       this.taskHintsUsed[task.id] = 0;
 
       // Questions with individual hint buttons
@@ -2126,13 +2240,13 @@ class OSINTChallenge {
             taskHintsUsed: taskHintsUsed
           });
           
-          // Update Firebase
+          // Update Firebase with TOTAL hints count
           if (currentUser) {
             await updateUserProgress(
               currentUser.id,
               task.id,
               true,
-              this.hintClickCount,
+              this.hintClickCount,  // Pass the TOTAL hints used so far
               this.attemptCounts[task.id] || 1
             );
           }
@@ -2308,6 +2422,9 @@ console.log(`
   ║                                   ║
   ║   Happy investigating! 🔍         ║
   ╚═══════════════════════════════════╝
+  
+  Note: If you want to migrate old progress data to the new structure,
+  run migrateProgressData() in the console.
 `);
 
 </script>
