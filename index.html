@@ -92,6 +92,10 @@
     font-weight: 700;
     color: #b0d351;
     font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
   }
 
   .achievement-title {
@@ -243,6 +247,7 @@
     font-size: 0.9rem;
     margin-top: 0.5rem;
     text-align: center;
+    word-wrap: break-word;
   }
 
   /* Progress Dashboard Button */
@@ -334,6 +339,10 @@
     padding: 1rem;
     text-align: left;
     border-bottom: 1px solid #444;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
   }
 
   .leaderboard-table th {
@@ -1026,7 +1035,7 @@
         <div class="briefing-note">
           <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to the account holder and attempting brute-force attacks. Also, you get a NEW hint every time you get a wrong answer.
 
-          My final thing to note, testing this site in general, including checking its source code is deemed out of scope for this challenge. We want to encourage real-world OSINT skills, not source-diving
+          Just so you know, testing this site in general is deemed out of scope for this challenge. We want to encourage real-world OSINT skills, not source-diving and OWASP top 10.
         </div>
         
         <p>If you have any questions, please shout me over and i may offer a hint. And when you complete ALL the tasks shout me over to claim your prize...Good Luck</p>
@@ -1142,9 +1151,24 @@ let taskStartTimes = {}; // Track when each task was started
 let totalWrongAnswers = 0; // Track wrong answers
 let gameInstance = null; // Store the game instance globally
 
-// Input sanitization
+// Enhanced input sanitization function
 function sanitizeInput(input) {
-  return input.trim().replace(/[<>]/g, '');
+  if (typeof input !== 'string') return '';
+  
+  // Remove any HTML tags and dangerous characters
+  return input
+    .trim()
+    .replace(/[<>'"]/g, '') // Remove HTML brackets and quotes
+    .replace(/javascript:/gi, '') // Remove javascript: protocol
+    .replace(/on\w+\s*=/gi, '') // Remove event handlers like onclick=
+    .substring(0, 50); // Limit length to prevent DoS
+}
+
+// Escape HTML for safe display
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Tasks configuration WITHOUT ANSWERS
@@ -1217,7 +1241,7 @@ const tasks = [
     ],
     keys: 2,
     hints: [
-      ['Look for landmarks in photos', 'Reverse Image Search is a good tool', 'No More Hints?'],
+      ['Look for landmarks in photos', 'Reverse Image Search is a good tool', 'No More Hints!'],
       ['Anything stand out in the picture?', 'No More Hints :)', 'No More Hints :)']
     ]
   },
@@ -1268,13 +1292,19 @@ function clearUserSession() {
   currentUser = null;
 }
 
-// User Management
+// User Management with enhanced validation
 async function saveUserToFirebase(name, team) {
   try {
-    // Always create a new user entry (no checking for duplicates)
+    // Additional server-side validation
+    if (name.length > 50 || (team && team.length > 50)) {
+      console.error('Name or team name too long');
+      return null;
+    }
+    
+    // Create user with sanitized data
     const userRef = await db.collection('users').add({
-      name: name,
-      team: team || 'Solo',
+      name: name, // Already sanitized
+      team: team || 'Solo', // Already sanitized
       startTime: firebase.firestore.FieldValue.serverTimestamp(),
       lastActive: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -1283,8 +1313,8 @@ async function saveUserToFirebase(name, team) {
     // Save session to localStorage with unique session ID
     const userSession = {
       id: userId,
-      name: name,
-      team: team || 'Solo',
+      name: name, // Store sanitized version
+      team: team || 'Solo', // Store sanitized version
       timestamp: Date.now(),
       sessionId: generateSessionId() // Add unique session identifier
     };
@@ -1377,7 +1407,7 @@ function startAchievementsListener() {
     });
 }
 
-// Fixed displayAchievement function
+// Updated displayAchievement function with proper HTML escaping
 function displayAchievement(achievement, container) {
   // Remove placeholder if exists
   const placeholder = container.querySelector('[style*="italic"]');
@@ -1398,22 +1428,44 @@ function displayAchievement(achievement, container) {
   }
   
   // Add special styling for gold achievements
-  if (achievement.achievementId === 'gauntlet_complete') {
+  if (achievement.achievementId === 'gauntlet_complete' || achievement.achievementId === 'speedrun_hour') {
     achievementEl.classList.add('gold');
   }
   
   // Get time ago - handle both timestamp formats
   const timeAgo = getTimeAgo(achievement.timestamp);
   
-  achievementEl.innerHTML = `
-    <div class="achievement-icon">${achievement.achievementIcon}</div>
-    <div class="achievement-time">${timeAgo}</div>
-    <div class="achievement-content">
-      <div class="achievement-user">${achievement.userName}${achievement.teamName !== 'Solo' ? ` (${achievement.teamName})` : ''} Unlocked an Achievement!</div>
-      <div class="achievement-title">${achievement.achievementTitle}</div>
-      <div class="achievement-description">${achievement.achievementDescription}</div>
-    </div>
-  `;
+  // Create elements programmatically to avoid XSS
+  const iconDiv = document.createElement('div');
+  iconDiv.className = 'achievement-icon';
+  iconDiv.textContent = achievement.achievementIcon;
+  
+  const timeDiv = document.createElement('div');
+  timeDiv.className = 'achievement-time';
+  timeDiv.textContent = timeAgo;
+  
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'achievement-content';
+  
+  const userDiv = document.createElement('div');
+  userDiv.className = 'achievement-user';
+  userDiv.textContent = `${achievement.userName}${achievement.teamName !== 'Solo' ? ` (${achievement.teamName})` : ''} Unlocked an Achievement!`;
+  
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'achievement-title';
+  titleDiv.textContent = achievement.achievementTitle;
+  
+  const descDiv = document.createElement('div');
+  descDiv.className = 'achievement-description';
+  descDiv.textContent = achievement.achievementDescription;
+  
+  contentDiv.appendChild(userDiv);
+  contentDiv.appendChild(titleDiv);
+  contentDiv.appendChild(descDiv);
+  
+  achievementEl.appendChild(iconDiv);
+  achievementEl.appendChild(timeDiv);
+  achievementEl.appendChild(contentDiv);
   
   // Insert at the top
   container.insertBefore(achievementEl, container.firstChild);
@@ -1590,7 +1642,7 @@ async function updateUserProgress(userId, taskId, completed, hints, attempts) {
   }
 }
 
-// FIXED: Updated leaderboard to work with both old and new structures
+// Updated leaderboard display with proper HTML escaping
 async function loadLeaderboard() {
   try {
     const users = await db.collection('users').get();
@@ -1672,7 +1724,7 @@ async function loadLeaderboard() {
   }
 }
 
-// Login functionality
+// Login functionality with enhanced sanitization
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('loginForm');
   const loginModal = document.getElementById('loginModal');
@@ -1702,14 +1754,26 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAchievements('user_started');
   }
   
+  // Updated login form handler with proper sanitization
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const name = document.getElementById('userName').value.trim();
-    const team = document.getElementById('userTeam').value.trim();
+    // Apply sanitization to both name and team fields
+    const rawName = document.getElementById('userName').value;
+    const rawTeam = document.getElementById('userTeam').value;
     
+    const name = sanitizeInput(rawName);
+    const team = sanitizeInput(rawTeam);
+    
+    // Validate sanitized input
     if (!name) {
-      document.getElementById('loginError').textContent = 'Please enter your name';
+      document.getElementById('loginError').textContent = 'Please enter a valid name (alphanumeric characters only)';
+      return;
+    }
+    
+    // Check if name was modified by sanitization (potential attack)
+    if (rawName !== name) {
+      document.getElementById('loginError').textContent = 'Name contains invalid characters. Please use only letters, numbers, and spaces.';
       return;
     }
     
@@ -1719,6 +1783,8 @@ document.addEventListener('DOMContentLoaded', () => {
       currentUser = { id: userId, name, team };
       loginModal.classList.remove('active');
       userInfo.classList.add('active');
+      
+      // Use textContent instead of innerHTML for safe display
       userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
       dashboardBtn.style.display = 'block';
       
@@ -1735,7 +1801,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Dashboard functionality
+  // Dashboard functionality with safe rendering
   dashboardBtn.addEventListener('click', async () => {
     dashboardModal.classList.add('active');
     const leaderboardContent = document.getElementById('leaderboardContent');
@@ -1748,35 +1814,57 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    let html = `
-      <table class="leaderboard-table">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Name</th>
-            <th>Team</th>
-            <th>Tasks Completed</th>
-            <th>Hints Used</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
+    // Create table elements programmatically for security
+    const table = document.createElement('table');
+    table.className = 'leaderboard-table';
     
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    ['Rank', 'Name', 'Team', 'Tasks Completed', 'Hints Used'].forEach(text => {
+      const th = document.createElement('th');
+      th.textContent = text;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    
+    const tbody = document.createElement('tbody');
     leaderboard.forEach((user, index) => {
       const isCurrentUser = currentUser && user.id === currentUser.id;
-      html += `
-        <tr${isCurrentUser ? ' style="background: rgba(176, 211, 81, 0.1);"' : ''}>
-          <td>${index + 1}</td>
-          <td>${user.name}${isCurrentUser ? ' (You)' : ''}</td>
-          <td>${user.team || 'Solo'}</td>
-          <td>${user.completedTasks}/6</td>
-          <td>${user.totalHints}</td>
-        </tr>
-      `;
+      const row = document.createElement('tr');
+      if (isCurrentUser) {
+        row.style.background = 'rgba(176, 211, 81, 0.1)';
+      }
+      
+      // Create cells with proper text content (not innerHTML)
+      const rankCell = document.createElement('td');
+      rankCell.textContent = index + 1;
+      
+      const nameCell = document.createElement('td');
+      nameCell.textContent = `${user.name}${isCurrentUser ? ' (You)' : ''}`;
+      
+      const teamCell = document.createElement('td');
+      teamCell.textContent = user.team || 'Solo';
+      
+      const tasksCell = document.createElement('td');
+      tasksCell.textContent = `${user.completedTasks}/6`;
+      
+      const hintsCell = document.createElement('td');
+      hintsCell.textContent = user.totalHints;
+      
+      row.appendChild(rankCell);
+      row.appendChild(nameCell);
+      row.appendChild(teamCell);
+      row.appendChild(tasksCell);
+      row.appendChild(hintsCell);
+      
+      tbody.appendChild(row);
     });
     
-    html += '</tbody></table>';
-    leaderboardContent.innerHTML = html;
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    
+    leaderboardContent.innerHTML = '';
+    leaderboardContent.appendChild(table);
   });
   
   closeDashboard.addEventListener('click', () => {
