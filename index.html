@@ -165,9 +165,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.3); /* Much less opaque to show matrix effect */
-    backdrop-filter: blur(10px); /* Blur the background */
-    -webkit-backdrop-filter: blur(10px); /* Safari support */
+    background: rgba(0, 0, 0, 0.8);
     z-index: 10000;
     animation: fadeIn 0.3s ease;
   }
@@ -176,19 +174,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    background: rgba(0, 0, 0, 0.9); /* More opaque to hide background elements */
   }
 
   .modal-content {
-    background: linear-gradient(135deg, rgba(30, 30, 30, 0.95) 0%, rgba(42, 42, 42, 0.95) 100%);
+    background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
     border: 2px solid #b0d351;
     border-radius: 15px;
     padding: 2rem;
     max-width: 400px;
     width: 90%;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.7), 0 0 60px rgba(176, 211, 81, 0.1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     animation: slideDown 0.3s ease;
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    position: relative;
+    z-index: 10002; /* Higher than letter glitch */
   }
 
   .modal-title {
@@ -261,7 +260,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 9998;
+    z-index: 10001; /* Higher than modal */
     pointer-events: none;
     transition: opacity 0.5s ease-out;
   }
@@ -352,7 +351,7 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.9);
-    z-index: 10001;
+    z-index: 10003; /* Higher than letter glitch and modal content */
     overflow-y: auto;
   }
 
@@ -369,6 +368,8 @@
     max-width: 800px;
     width: 90%;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    position: relative;
+    z-index: 10004; /* Ensure it's above everything */
   }
 
   .dashboard-title {
