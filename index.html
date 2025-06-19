@@ -178,16 +178,31 @@
   }
 
   .modal-content {
-    background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+    background: #1e1e1e; /* Solid background first */
+    background-image: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
     border: 2px solid #b0d351;
     border-radius: 15px;
     padding: 2rem;
     max-width: 400px;
     width: 90%;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
     animation: slideDown 0.3s ease;
     position: relative;
-    z-index: 10002; /* Higher than letter glitch */
+    z-index: 10003; /* Much higher than letter glitch */
+    isolation: isolate; /* Create new stacking context */
+    overflow: hidden; /* Prevent bleed-through */
+  }
+
+  .modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #1e1e1e;
+    border-radius: 15px;
+    z-index: -1;
   }
 
   .modal-title {
@@ -195,10 +210,19 @@
     font-size: 1.5rem;
     margin-bottom: 1rem;
     text-align: center;
+    position: relative;
+    z-index: 1;
   }
 
   .form-group {
     margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  #loginForm {
+    position: relative;
+    z-index: 2;
   }
 
   .form-group label {
@@ -217,6 +241,8 @@
     color: #eee;
     font-size: 1rem;
     transition: border-color 0.3s ease;
+    position: relative;
+    z-index: 1;
   }
 
   .form-group input:focus {
@@ -237,6 +263,8 @@
     cursor: pointer;
     transition: all 0.3s ease;
     margin-top: 1rem;
+    position: relative;
+    z-index: 1;
   }
 
   .form-submit:hover {
@@ -251,6 +279,8 @@
     margin-top: 0.5rem;
     text-align: center;
     word-wrap: break-word;
+    position: relative;
+    z-index: 1;
   }
 
   /* Letter Glitch Styles */
@@ -260,7 +290,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 10001; /* Higher than modal */
+    z-index: 10001; /* Between modal background and content */
     pointer-events: none;
     transition: opacity 0.5s ease-out;
   }
@@ -351,7 +381,7 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.9);
-    z-index: 10003; /* Higher than letter glitch and modal content */
+    z-index: 10004; /* Higher than modal content */
     overflow-y: auto;
   }
 
@@ -369,7 +399,7 @@
     width: 90%;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     position: relative;
-    z-index: 10004; /* Ensure it's above everything */
+    z-index: 10005; /* Ensure it's above everything */
   }
 
   .dashboard-title {
@@ -823,7 +853,7 @@
     width: 100vw;
     height: 100vh;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 10006; /* Highest z-index for celebration effect */
   }
   
   li.task.locked {
