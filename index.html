@@ -174,7 +174,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.9); /* More opaque to hide background elements */
+    background: rgba(0, 0, 0, 0.7); /* Slightly transparent to see the effect */
   }
 
   .modal-content {
@@ -186,8 +186,6 @@
     width: 90%;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     animation: slideDown 0.3s ease;
-    position: relative;
-    z-index: 10002; /* Higher than letter glitch */
   }
 
   .modal-title {
@@ -260,7 +258,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 10001; /* Higher than modal */
+    z-index: 9998;
     pointer-events: none;
     transition: opacity 0.5s ease-out;
   }
@@ -351,7 +349,7 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.9);
-    z-index: 10003; /* Higher than letter glitch and modal content */
+    z-index: 10001;
     overflow-y: auto;
   }
 
@@ -368,8 +366,6 @@
     max-width: 800px;
     width: 90%;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    position: relative;
-    z-index: 10004; /* Ensure it's above everything */
   }
 
   .dashboard-title {
