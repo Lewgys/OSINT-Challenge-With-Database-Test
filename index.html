@@ -165,8 +165,8 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: #0c0c0c; /* Solid background matching body gradient start */
-    z-index: 9999; /* Changed from 10000 to be above letter glitch */
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10000;
     animation: fadeIn 0.3s ease;
   }
 
@@ -174,14 +174,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  /* Hide all background content when modal is active */
-  body.modal-active .achievements-panel,
-  body.modal-active .main-content {
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    background: rgba(0, 0, 0, 0.7); /* Slightly transparent to see the effect */
   }
 
   .modal-content {
@@ -193,8 +186,6 @@
     width: 90%;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     animation: slideDown 0.3s ease;
-    position: relative;
-    z-index: 10000; /* Changed from 10002 */
   }
 
   .modal-title {
@@ -267,7 +258,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 9998; /* Changed from 10001 to be below modal */
+    z-index: 9998;
     pointer-events: none;
     transition: opacity 0.5s ease-out;
   }
@@ -2035,9 +2026,6 @@ document.addEventListener('DOMContentLoaded', () => {
       letterGlitchInstance = null;
     }
     
-    // Remove modal-active class from body
-    document.body.classList.remove('modal-active');
-    
     // Restore user session
     currentUser = existingSession;
     loginModal.classList.remove('active');
@@ -2053,9 +2041,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Mark user as started for achievement tracking
     checkAchievements('user_started');
-  } else {
-    // Add modal-active class to body when showing login
-    document.body.classList.add('modal-active');
   }
   
   // Updated login form handler with proper sanitization
@@ -2089,9 +2074,6 @@ document.addEventListener('DOMContentLoaded', () => {
         letterGlitchInstance.destroy();
         letterGlitchInstance = null;
       }
-      
-      // Remove modal-active class from body
-      document.body.classList.remove('modal-active');
       
       currentUser = { id: userId, name, team };
       loginModal.classList.remove('active');
