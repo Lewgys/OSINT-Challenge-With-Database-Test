@@ -92,10 +92,6 @@
     font-weight: 700;
     color: #b0d351;
     font-size: 0.9rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 200px;
   }
 
   .achievement-title {
@@ -165,7 +161,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 1);
+    background: rgba(0, 0, 0, 0.8);
     z-index: 10000;
     animation: fadeIn 0.3s ease;
   }
@@ -174,35 +170,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.9); /* More opaque to hide background elements */
   }
 
   .modal-content {
-    background: #1e1e1e; /* Solid background first */
-    background-image: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+    background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
     border: 2px solid #b0d351;
     border-radius: 15px;
     padding: 2rem;
     max-width: 400px;
     width: 90%;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     animation: slideDown 0.3s ease;
-    position: relative;
-    z-index: 10003; /* Much higher than letter glitch */
-    isolation: isolate; /* Create new stacking context */
-    overflow: hidden; /* Prevent bleed-through */
-  }
-
-  .modal-content::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: #1e1e1e;
-    border-radius: 15px;
-    z-index: -1;
   }
 
   .modal-title {
@@ -210,19 +188,10 @@
     font-size: 1.5rem;
     margin-bottom: 1rem;
     text-align: center;
-    position: relative;
-    z-index: 1;
   }
 
   .form-group {
     margin-bottom: 1rem;
-    position: relative;
-    z-index: 1;
-  }
-
-  #loginForm {
-    position: relative;
-    z-index: 2;
   }
 
   .form-group label {
@@ -241,8 +210,6 @@
     color: #eee;
     font-size: 1rem;
     transition: border-color 0.3s ease;
-    position: relative;
-    z-index: 1;
   }
 
   .form-group input:focus {
@@ -263,8 +230,6 @@
     cursor: pointer;
     transition: all 0.3s ease;
     margin-top: 1rem;
-    position: relative;
-    z-index: 1;
   }
 
   .form-submit:hover {
@@ -278,55 +243,6 @@
     font-size: 0.9rem;
     margin-top: 0.5rem;
     text-align: center;
-    word-wrap: break-word;
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Letter Glitch Styles */
-  .letter-glitch-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 10001; /* Between modal background and content */
-    pointer-events: none;
-    transition: opacity 0.5s ease-out;
-  }
-
-  .letter-glitch-container.active {
-    opacity: 1;
-  }
-
-  .letter-glitch-container.fade-out {
-    opacity: 0;
-  }
-
-  .letter-glitch-canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  .letter-glitch-vignette-outer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,1) 100%);
-  }
-
-  .letter-glitch-vignette-center {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    background: radial-gradient(circle, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 60%);
   }
 
   /* Progress Dashboard Button */
@@ -381,7 +297,7 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.9);
-    z-index: 10004; /* Higher than modal content */
+    z-index: 10001;
     overflow-y: auto;
   }
 
@@ -398,8 +314,6 @@
     max-width: 800px;
     width: 90%;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    position: relative;
-    z-index: 10005; /* Ensure it's above everything */
   }
 
   .dashboard-title {
@@ -420,10 +334,6 @@
     padding: 1rem;
     text-align: left;
     border-bottom: 1px solid #444;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 200px;
   }
 
   .leaderboard-table th {
@@ -853,7 +763,7 @@
     width: 100vw;
     height: 100vh;
     pointer-events: none;
-    z-index: 10006; /* Highest z-index for celebration effect */
+    z-index: 9999;
   }
   
   li.task.locked {
@@ -1232,24 +1142,9 @@ let taskStartTimes = {}; // Track when each task was started
 let totalWrongAnswers = 0; // Track wrong answers
 let gameInstance = null; // Store the game instance globally
 
-// Enhanced input sanitization function
+// Input sanitization
 function sanitizeInput(input) {
-  if (typeof input !== 'string') return '';
-  
-  // Remove any HTML tags and dangerous characters
-  return input
-    .trim()
-    .replace(/[<>'"]/g, '') // Remove HTML brackets and quotes
-    .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+\s*=/gi, '') // Remove event handlers like onclick=
-    .substring(0, 50); // Limit length to prevent DoS
-}
-
-// Escape HTML for safe display
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  return input.trim().replace(/[<>]/g, '');
 }
 
 // Tasks configuration WITHOUT ANSWERS
@@ -1332,13 +1227,15 @@ const tasks = [
     description: 'Final challenge - Good Luck',
     questions: [
       'What is the mystery flag?',
-      'What building does the attacker live in?'
+      'What building does the attacker live in?',
+      'On what day did BeansBently get his favorite Caffeinated Beverage? (Provide answer in following format: DD/MM/YYYY)'
     ],
-    keys: 2,
+    keys: 3,
     hiddenUntil: 'task5',
     hints: [
       ['Delve Deeper into places you have already been', 'you need to DIG deeper', 'This is a bonus round, you do not get a third hint ;)'],
-      ['Sometimes the answer is hidden in plain sight', 'No More Hints :)', 'No More Hints :)']
+      ['Sometimes the answer is hidden in plain sight', 'No More Hints :)', 'No More Hints :)'],
+      ['Check social media posts carefully', 'Look for coffee-related posts', 'Check the metadata or post dates']
     ]
   }
 ];
@@ -1373,19 +1270,13 @@ function clearUserSession() {
   currentUser = null;
 }
 
-// User Management with enhanced validation
+// User Management
 async function saveUserToFirebase(name, team) {
   try {
-    // Additional server-side validation
-    if (name.length > 50 || (team && team.length > 50)) {
-      console.error('Name or team name too long');
-      return null;
-    }
-    
-    // Create user with sanitized data
+    // Always create a new user entry (no checking for duplicates)
     const userRef = await db.collection('users').add({
-      name: name, // Already sanitized
-      team: team || 'Solo', // Already sanitized
+      name: name,
+      team: team || 'Solo',
       startTime: firebase.firestore.FieldValue.serverTimestamp(),
       lastActive: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -1394,8 +1285,8 @@ async function saveUserToFirebase(name, team) {
     // Save session to localStorage with unique session ID
     const userSession = {
       id: userId,
-      name: name, // Store sanitized version
-      team: team || 'Solo', // Store sanitized version
+      name: name,
+      team: team || 'Solo',
       timestamp: Date.now(),
       sessionId: generateSessionId() // Add unique session identifier
     };
@@ -1488,7 +1379,7 @@ function startAchievementsListener() {
     });
 }
 
-// Updated displayAchievement function with proper HTML escaping
+// Fixed displayAchievement function
 function displayAchievement(achievement, container) {
   // Remove placeholder if exists
   const placeholder = container.querySelector('[style*="italic"]');
@@ -1509,44 +1400,22 @@ function displayAchievement(achievement, container) {
   }
   
   // Add special styling for gold achievements
-  if (achievement.achievementId === 'gauntlet_complete' || achievement.achievementId === 'speedrun_hour') {
+  if (achievement.achievementId === 'gauntlet_complete') {
     achievementEl.classList.add('gold');
   }
   
   // Get time ago - handle both timestamp formats
   const timeAgo = getTimeAgo(achievement.timestamp);
   
-  // Create elements programmatically to avoid XSS
-  const iconDiv = document.createElement('div');
-  iconDiv.className = 'achievement-icon';
-  iconDiv.textContent = achievement.achievementIcon;
-  
-  const timeDiv = document.createElement('div');
-  timeDiv.className = 'achievement-time';
-  timeDiv.textContent = timeAgo;
-  
-  const contentDiv = document.createElement('div');
-  contentDiv.className = 'achievement-content';
-  
-  const userDiv = document.createElement('div');
-  userDiv.className = 'achievement-user';
-  userDiv.textContent = `${achievement.userName}${achievement.teamName !== 'Solo' ? ` (${achievement.teamName})` : ''} Unlocked an Achievement!`;
-  
-  const titleDiv = document.createElement('div');
-  titleDiv.className = 'achievement-title';
-  titleDiv.textContent = achievement.achievementTitle;
-  
-  const descDiv = document.createElement('div');
-  descDiv.className = 'achievement-description';
-  descDiv.textContent = achievement.achievementDescription;
-  
-  contentDiv.appendChild(userDiv);
-  contentDiv.appendChild(titleDiv);
-  contentDiv.appendChild(descDiv);
-  
-  achievementEl.appendChild(iconDiv);
-  achievementEl.appendChild(timeDiv);
-  achievementEl.appendChild(contentDiv);
+  achievementEl.innerHTML = `
+    <div class="achievement-icon">${achievement.achievementIcon}</div>
+    <div class="achievement-time">${timeAgo}</div>
+    <div class="achievement-content">
+      <div class="achievement-user">${achievement.userName}${achievement.teamName !== 'Solo' ? ` (${achievement.teamName})` : ''} Unlocked an Achievement!</div>
+      <div class="achievement-title">${achievement.achievementTitle}</div>
+      <div class="achievement-description">${achievement.achievementDescription}</div>
+    </div>
+  `;
   
   // Insert at the top
   container.insertBefore(achievementEl, container.firstChild);
@@ -1723,7 +1592,7 @@ async function updateUserProgress(userId, taskId, completed, hints, attempts) {
   }
 }
 
-// Updated leaderboard display with proper HTML escaping
+// FIXED: Updated leaderboard to work with both old and new structures
 async function loadLeaderboard() {
   try {
     const users = await db.collection('users').get();
@@ -1805,230 +1674,7 @@ async function loadLeaderboard() {
   }
 }
 
-// Letter Glitch Effect Class
-class LetterGlitch {
-  constructor(container, options = {}) {
-    this.container = container;
-    this.options = {
-      glitchColors: options.glitchColors || ['#b0d351', '#61dca3', '#61b3dc'],
-      glitchSpeed: options.glitchSpeed || 50,
-      centerVignette: options.centerVignette !== undefined ? options.centerVignette : false,
-      outerVignette: options.outerVignette !== undefined ? options.outerVignette : true,
-      smooth: options.smooth !== undefined ? options.smooth : true,
-    };
-
-    this.canvas = null;
-    this.context = null;
-    this.animationFrame = null;
-    this.letters = [];
-    this.grid = { columns: 0, rows: 0 };
-    this.lastGlitchTime = Date.now();
-
-    this.fontSize = 16;
-    this.charWidth = 10;
-    this.charHeight = 20;
-
-    this.lettersAndSymbols = [
-      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-      'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-      '!', '@', '#', '$', '&', '*', '(', ')', '-', '_', '+', '=', '/',
-      '[', ']', '{', '}', ';', ':', '<', '>', ',', '0', '1', '2', '3',
-      '4', '5', '6', '7', '8', '9'
-    ];
-
-    this.init();
-  }
-
-  init() {
-    this.container.innerHTML = '';
-    this.container.className = 'letter-glitch-container active';
-
-    this.canvas = document.createElement('canvas');
-    this.canvas.className = 'letter-glitch-canvas';
-    this.container.appendChild(this.canvas);
-
-    if (this.options.outerVignette) {
-      const outerVignette = document.createElement('div');
-      outerVignette.className = 'letter-glitch-vignette-outer';
-      this.container.appendChild(outerVignette);
-    }
-
-    if (this.options.centerVignette) {
-      const centerVignette = document.createElement('div');
-      centerVignette.className = 'letter-glitch-vignette-center';
-      this.container.appendChild(centerVignette);
-    }
-
-    this.context = this.canvas.getContext('2d');
-    this.resizeCanvas();
-    this.animate();
-
-    this.resizeHandler = this.handleResize.bind(this);
-    window.addEventListener('resize', this.resizeHandler);
-  }
-
-  getRandomChar() {
-    return this.lettersAndSymbols[Math.floor(Math.random() * this.lettersAndSymbols.length)];
-  }
-
-  getRandomColor() {
-    return this.options.glitchColors[Math.floor(Math.random() * this.options.glitchColors.length)];
-  }
-
-  hexToRgb(hex) {
-    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-    hex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
-
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : null;
-  }
-
-  interpolateColor(start, end, factor) {
-    const result = {
-      r: Math.round(start.r + (end.r - start.r) * factor),
-      g: Math.round(start.g + (end.g - start.g) * factor),
-      b: Math.round(start.b + (end.b - start.b) * factor),
-    };
-    return `rgb(${result.r}, ${result.g}, ${result.b})`;
-  }
-
-  calculateGrid(width, height) {
-    const columns = Math.ceil(width / this.charWidth);
-    const rows = Math.ceil(height / this.charHeight);
-    return { columns, rows };
-  }
-
-  initializeLetters(columns, rows) {
-    this.grid = { columns, rows };
-    const totalLetters = columns * rows;
-    this.letters = Array.from({ length: totalLetters }, () => ({
-      char: this.getRandomChar(),
-      color: this.getRandomColor(),
-      targetColor: this.getRandomColor(),
-      colorProgress: 1,
-    }));
-  }
-
-  resizeCanvas() {
-    if (!this.canvas || !this.container) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const rect = this.container.getBoundingClientRect();
-
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
-
-    this.canvas.style.width = `${rect.width}px`;
-    this.canvas.style.height = `${rect.height}px`;
-
-    if (this.context) {
-      this.context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    const { columns, rows } = this.calculateGrid(rect.width, rect.height);
-    this.initializeLetters(columns, rows);
-
-    this.drawLetters();
-  }
-
-  drawLetters() {
-    if (!this.context || this.letters.length === 0) return;
-    const ctx = this.context;
-    const { width, height } = this.canvas.getBoundingClientRect();
-    ctx.clearRect(0, 0, width, height);
-    ctx.font = `${this.fontSize}px monospace`;
-    ctx.textBaseline = 'top';
-
-    this.letters.forEach((letter, index) => {
-      const x = (index % this.grid.columns) * this.charWidth;
-      const y = Math.floor(index / this.grid.columns) * this.charHeight;
-      ctx.fillStyle = letter.color;
-      ctx.fillText(letter.char, x, y);
-    });
-  }
-
-  updateLetters() {
-    if (!this.letters || this.letters.length === 0) return;
-
-    const updateCount = Math.max(1, Math.floor(this.letters.length * 0.05));
-
-    for (let i = 0; i < updateCount; i++) {
-      const index = Math.floor(Math.random() * this.letters.length);
-      if (!this.letters[index]) continue;
-
-      this.letters[index].char = this.getRandomChar();
-      this.letters[index].targetColor = this.getRandomColor();
-
-      if (!this.options.smooth) {
-        this.letters[index].color = this.letters[index].targetColor;
-        this.letters[index].colorProgress = 1;
-      } else {
-        this.letters[index].colorProgress = 0;
-      }
-    }
-  }
-
-  handleSmoothTransitions() {
-    let needsRedraw = false;
-    this.letters.forEach((letter) => {
-      if (letter.colorProgress < 1) {
-        letter.colorProgress += 0.05;
-        if (letter.colorProgress > 1) letter.colorProgress = 1;
-
-        const startRgb = this.hexToRgb(letter.color);
-        const endRgb = this.hexToRgb(letter.targetColor);
-        if (startRgb && endRgb) {
-          letter.color = this.interpolateColor(startRgb, endRgb, letter.colorProgress);
-          needsRedraw = true;
-        }
-      }
-    });
-
-    if (needsRedraw) {
-      this.drawLetters();
-    }
-  }
-
-  animate() {
-    const now = Date.now();
-    if (now - this.lastGlitchTime >= this.options.glitchSpeed) {
-      this.updateLetters();
-      this.drawLetters();
-      this.lastGlitchTime = now;
-    }
-
-    if (this.options.smooth) {
-      this.handleSmoothTransitions();
-    }
-
-    this.animationFrame = requestAnimationFrame(() => this.animate());
-  }
-
-  handleResize() {
-    clearTimeout(this.resizeTimeout);
-    this.resizeTimeout = setTimeout(() => {
-      this.resizeCanvas();
-    }, 100);
-  }
-
-  destroy() {
-    if (this.animationFrame) {
-      cancelAnimationFrame(this.animationFrame);
-    }
-    window.removeEventListener('resize', this.resizeHandler);
-    
-    this.container.classList.add('fade-out');
-    setTimeout(() => {
-      this.container.remove();
-    }, 500);
-  }
-}
-
-// Login functionality with enhanced sanitization
+// Login functionality
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('loginForm');
   const loginModal = document.getElementById('loginModal');
@@ -2038,28 +1684,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const dashboardModal = document.getElementById('dashboardModal');
   const closeDashboard = document.getElementById('closeDashboard');
   
-  // Letter Glitch Effect initialization
-  let letterGlitchInstance = null;
-  const glitchContainer = document.createElement('div');
-  document.body.insertBefore(glitchContainer, document.body.firstChild);
-  
-  letterGlitchInstance = new LetterGlitch(glitchContainer, {
-    glitchColors: ['#b0d351', '#a8cc4c', '#61dca3'],
-    glitchSpeed: 50,
-    centerVignette: true,
-    outerVignette: false,
-    smooth: true
-  });
-  
   // Check for existing session on page load
   const existingSession = loadUserSession();
   if (existingSession) {
-    // Destroy the letter glitch effect immediately
-    if (letterGlitchInstance) {
-      letterGlitchInstance.destroy();
-      letterGlitchInstance = null;
-    }
-    
     // Restore user session
     currentUser = existingSession;
     loginModal.classList.remove('active');
@@ -2077,43 +1704,23 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAchievements('user_started');
   }
   
-  // Updated login form handler with proper sanitization
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Apply sanitization to both name and team fields
-    const rawName = document.getElementById('userName').value;
-    const rawTeam = document.getElementById('userTeam').value;
+    const name = document.getElementById('userName').value.trim();
+    const team = document.getElementById('userTeam').value.trim();
     
-    const name = sanitizeInput(rawName);
-    const team = sanitizeInput(rawTeam);
-    
-    // Validate sanitized input
     if (!name) {
-      document.getElementById('loginError').textContent = 'Please enter a valid name (alphanumeric characters only)';
-      return;
-    }
-    
-    // Check if name was modified by sanitization (potential attack)
-    if (rawName !== name) {
-      document.getElementById('loginError').textContent = 'Name contains invalid characters. Please use only letters, numbers, and spaces.';
+      document.getElementById('loginError').textContent = 'Please enter your name';
       return;
     }
     
     const userId = await saveUserToFirebase(name, team);
     
     if (userId) {
-      // Destroy the letter glitch effect on successful login
-      if (letterGlitchInstance) {
-        letterGlitchInstance.destroy();
-        letterGlitchInstance = null;
-      }
-      
       currentUser = { id: userId, name, team };
       loginModal.classList.remove('active');
       userInfo.classList.add('active');
-      
-      // Use textContent instead of innerHTML for safe display
       userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
       dashboardBtn.style.display = 'block';
       
@@ -2130,7 +1737,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Dashboard functionality with safe rendering
+  // Dashboard functionality
   dashboardBtn.addEventListener('click', async () => {
     dashboardModal.classList.add('active');
     const leaderboardContent = document.getElementById('leaderboardContent');
@@ -2143,57 +1750,35 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    // Create table elements programmatically for security
-    const table = document.createElement('table');
-    table.className = 'leaderboard-table';
+    let html = `
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Team</th>
+            <th>Tasks Completed</th>
+            <th>Hints Used</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
     
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    ['Rank', 'Name', 'Team', 'Tasks Completed', 'Hints Used'].forEach(text => {
-      const th = document.createElement('th');
-      th.textContent = text;
-      headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    
-    const tbody = document.createElement('tbody');
     leaderboard.forEach((user, index) => {
       const isCurrentUser = currentUser && user.id === currentUser.id;
-      const row = document.createElement('tr');
-      if (isCurrentUser) {
-        row.style.background = 'rgba(176, 211, 81, 0.1)';
-      }
-      
-      // Create cells with proper text content (not innerHTML)
-      const rankCell = document.createElement('td');
-      rankCell.textContent = index + 1;
-      
-      const nameCell = document.createElement('td');
-      nameCell.textContent = `${user.name}${isCurrentUser ? ' (You)' : ''}`;
-      
-      const teamCell = document.createElement('td');
-      teamCell.textContent = user.team || 'Solo';
-      
-      const tasksCell = document.createElement('td');
-      tasksCell.textContent = `${user.completedTasks}/6`;
-      
-      const hintsCell = document.createElement('td');
-      hintsCell.textContent = user.totalHints;
-      
-      row.appendChild(rankCell);
-      row.appendChild(nameCell);
-      row.appendChild(teamCell);
-      row.appendChild(tasksCell);
-      row.appendChild(hintsCell);
-      
-      tbody.appendChild(row);
+      html += `
+        <tr${isCurrentUser ? ' style="background: rgba(176, 211, 81, 0.1);"' : ''}>
+          <td>${index + 1}</td>
+          <td>${user.name}${isCurrentUser ? ' (You)' : ''}</td>
+          <td>${user.team || 'Solo'}</td>
+          <td>${user.completedTasks}/6</td>
+          <td>${user.totalHints}</td>
+        </tr>
+      `;
     });
     
-    table.appendChild(thead);
-    table.appendChild(tbody);
-    
-    leaderboardContent.innerHTML = '';
-    leaderboardContent.appendChild(table);
+    html += '</tbody></table>';
+    leaderboardContent.innerHTML = html;
   });
   
   closeDashboard.addEventListener('click', () => {
