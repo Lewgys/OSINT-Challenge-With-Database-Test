@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="description" content="Interactive OSINT Challenge - Test your open source intelligence skills">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://Lewgys--aa56c8f844a711f0b0d776b3cceeab13.web.val.run;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://*.firebaseio.com https://*.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://Lewgys--aa56c8f844a711f0b0d776b3cceeab13.web.val.run https://Lewgys-achievements-stream.web.val.run https://Lewgys-broadcast-achievement.web.val.run;">
 <title>OSINT Challenge</title>
 <style>
   * {
@@ -1142,6 +1142,10 @@ let taskStartTimes = {}; // Track when each task was started
 let totalWrongAnswers = 0; // Track wrong answers
 let gameInstance = null; // Store the game instance globally
 
+// SSE Connection variables
+let sseConnection = null;
+let sseReconnectTimeout = null;
+
 // Input sanitisation
 function sanitizeInput(input) {
   return input.trim().replace(/[<>]/g, '');
@@ -1304,7 +1308,7 @@ function generateSessionId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Achievement Management - Fixed version
+// Achievement Management - Updated for SSE
 async function unlockAchievement(achievementId, userId, userName, teamName) {
   try {
     console.log('Attempting to unlock achievement:', achievementId, 'for user:', userName, 'with ID:', userId);
@@ -1332,7 +1336,7 @@ async function unlockAchievement(achievementId, userId, userName, teamName) {
 
     console.log('Awarding achievement:', achievementId);
     
-    // Award the achievement with proper timestamp
+    // First, save to Firebase
     await db.collection('achievements').add({
       userId: userId,
       userName: userName,
@@ -1343,6 +1347,27 @@ async function unlockAchievement(achievementId, userId, userName, teamName) {
       achievementIcon: ACHIEVEMENTS[achievementId].icon,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
+    
+    // Then broadcast via Val.town (this will reach all connected clients)
+    try {
+      await fetch('https://Lewgys-broadcast-achievement.web.val.run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId,
+          userName: userName,
+          teamName: teamName || 'Solo',
+          achievementId: achievementId,
+          achievementTitle: ACHIEVEMENTS[achievementId].title,
+          achievementDescription: ACHIEVEMENTS[achievementId].description,
+          achievementIcon: ACHIEVEMENTS[achievementId].icon,
+          special: ACHIEVEMENTS[achievementId].special
+        })
+      });
+    } catch (broadcastError) {
+      console.error('Failed to broadcast achievement:', broadcastError);
+      // Continue anyway - Firebase save was successful
+    }
 
     console.log(`Achievement unlocked: ${achievementId} for ${userName}`);
   } catch (error) {
@@ -1350,33 +1375,113 @@ async function unlockAchievement(achievementId, userId, userName, teamName) {
   }
 }
 
-// Real-time achievements listener - Fixed version
+// SSE Connection setup
+function setupSSEConnection() {
+  const SSE_URL = 'https://Lewgys-achievements-stream.web.val.run';
+  
+  console.log('Connecting to SSE endpoint...');
+  
+  try {
+    sseConnection = new EventSource(SSE_URL);
+    
+    sseConnection.onopen = () => {
+      console.log('SSE connection established');
+      // Clear any reconnection timeout
+      if (sseReconnectTimeout) {
+        clearTimeout(sseReconnectTimeout);
+        sseReconnectTimeout = null;
+      }
+    };
+    
+    sseConnection.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'connected') {
+          console.log('SSE connected at:', data.timestamp);
+          return;
+        }
+        
+        // Display the achievement
+        const achievementsList = document.getElementById('achievementsList');
+        displayAchievement(data, achievementsList);
+        
+        // Also save to Firebase for persistence (but users don't read from it live)
+        if (data.userId && data.achievementId) {
+          saveAchievementToFirebase(data);
+        }
+      } catch (error) {
+        console.error('Error processing SSE message:', error);
+      }
+    };
+    
+    sseConnection.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      sseConnection.close();
+      
+      // Attempt to reconnect after 5 seconds
+      sseReconnectTimeout = setTimeout(() => {
+        console.log('Attempting to reconnect SSE...');
+        setupSSEConnection();
+      }, 5000);
+    };
+    
+  } catch (error) {
+    console.error('Failed to create SSE connection:', error);
+  }
+}
+
+// Save achievements to Firebase (write-only)
+async function saveAchievementToFirebase(achievement) {
+  try {
+    // Don't save if it's our own achievement (we already saved it)
+    if (achievement.userId === currentUser?.id) {
+      return;
+    }
+    
+    // Save to Firebase for persistence
+    await db.collection('achievements').add({
+      userId: achievement.userId,
+      userName: achievement.userName,
+      teamName: achievement.teamName,
+      achievementId: achievement.achievementId,
+      achievementTitle: achievement.achievementTitle,
+      achievementDescription: achievement.achievementDescription,
+      achievementIcon: achievement.achievementIcon,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error saving achievement to Firebase:', error);
+  }
+}
+
+// Real-time achievements listener - Updated for SSE
 function startAchievementsListener() {
   const achievementsList = document.getElementById('achievementsList');
+  console.log('Starting SSE achievements listener...');
   
-  console.log('Starting achievements listener...');
-  
-  achievementsListener = db.collection('achievements')
+  // First, load recent achievements from Firebase (one-time read)
+  db.collection('achievements')
     .orderBy('timestamp', 'desc')
-    .limit(20)
-    .onSnapshot((snapshot) => {
-      console.log('Achievements snapshot received, changes:', snapshot.docChanges().length);
+    .limit(10)
+    .get()
+    .then(snapshot => {
+      // Clear placeholder
+      achievementsList.innerHTML = '';
       
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const achievement = change.doc.data();
-          const docId = change.doc.id;
-          console.log('New achievement added:', achievement);
-          
-          // Add the document ID to the achievement data
-          achievement.docId = docId;
-          
-          displayAchievement(achievement, achievementsList);
-        }
+      // Display existing achievements
+      snapshot.forEach(doc => {
+        const achievement = doc.data();
+        achievement.docId = doc.id;
+        displayAchievement(achievement, achievementsList);
       });
-    }, (error) => {
-      console.error('Error in achievements listener:', error);
+    })
+    .catch(error => {
+      console.error('Error loading initial achievements:', error);
     });
+  
+  // Now set up SSE for live updates
+  setupSSEConnection();
 }
 
 // Fixed displayAchievement function
@@ -1400,7 +1505,7 @@ function displayAchievement(achievement, container) {
   }
   
   // Add special styling for gold achievements
-  if (achievement.achievementId === 'gauntlet_complete') {
+  if (achievement.achievementId === 'gauntlet_complete' || achievement.special === 'gold') {
     achievementEl.classList.add('gold');
   }
   
@@ -2149,14 +2254,31 @@ class OSINTChallenge {
     submitBtn.textContent = '';
 
     try {
-      // Call Val.town API for validation
+      // Prepare achievement data for this task completion
+      let achievementData = null;
+      const taskHintsUsed = this.taskHintsUsed[task.id] || 0;
+      
+      // Determine which achievements might be unlocked
+      if (task.id === 'task1' && !this.completedTasks[task.id]) {
+        achievementData = {
+          achievementId: 'baby_steps',
+          achievementTitle: ACHIEVEMENTS.baby_steps.title,
+          achievementDescription: ACHIEVEMENTS.baby_steps.description,
+          achievementIcon: ACHIEVEMENTS.baby_steps.icon
+        };
+      }
+      
+      // Call Val.town API for validation with user info
       const response = await fetch(CONFIG.VAL_TOWN_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           taskId: task.id, 
           answers: answers,
-          userId: currentUser?.id || 'anonymous'
+          userId: currentUser?.id || 'anonymous',
+          userName: currentUser?.name,
+          teamName: currentUser?.team,
+          achievementData: achievementData // Include potential achievement
         })
       });
 
@@ -2183,8 +2305,7 @@ class OSINTChallenge {
           this.updateProgress();
           this.unlockNextTask(task);
           
-          // Check for task completion achievements
-          const taskHintsUsed = this.taskHintsUsed[task.id] || 0;
+          // Check for all other achievements
           checkAchievements('task_completed', { 
             taskId: task.id, 
             completedCount: Object.keys(this.completedTasks).length,
@@ -2193,13 +2314,13 @@ class OSINTChallenge {
             taskHintsUsed: taskHintsUsed
           });
           
-          // Update Firebase with TOTAL hints count
+          // Update Firebase with progress
           if (currentUser) {
             await updateUserProgress(
               currentUser.id,
               task.id,
               true,
-              this.hintClickCount,  // Pass the TOTAL hints used so far
+              this.hintClickCount,
               this.attemptCounts[task.id] || 1
             );
           }
@@ -2345,6 +2466,16 @@ document.addEventListener('keydown', (e) => {
       li.classList.remove('open');
       li.querySelector('.task-content').style.display = 'none';
     });
+  }
+});
+
+// Clean up SSE on page unload
+window.addEventListener('beforeunload', () => {
+  if (sseConnection) {
+    sseConnection.close();
+  }
+  if (sseReconnectTimeout) {
+    clearTimeout(sseReconnectTimeout);
   }
 });
 
