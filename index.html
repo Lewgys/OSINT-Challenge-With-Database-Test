@@ -2193,15 +2193,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
-  // Countdown briefing button - reuse existing briefing functionality
+  // Countdown briefing button - show briefing as a modal
   countdownBriefingBtn.addEventListener('click', () => {
     const briefingDropdown = document.getElementById('briefingDropdown');
+    
+    // Create a backdrop for the briefing modal
+    const backdrop = document.createElement('div');
+    backdrop.style.position = 'fixed';
+    backdrop.style.top = '0';
+    backdrop.style.left = '0';
+    backdrop.style.width = '100%';
+    backdrop.style.height = '100%';
+    backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    backdrop.style.zIndex = '20001';
+    backdrop.id = 'briefingBackdrop';
+    
+    // Set briefing dropdown styles for modal display
     briefingDropdown.style.position = 'fixed';
     briefingDropdown.style.top = '50%';
     briefingDropdown.style.left = '50%';
     briefingDropdown.style.transform = 'translate(-50%, -50%)';
     briefingDropdown.style.display = 'block';
-    briefingDropdown.style.zIndex = '20001';
+    briefingDropdown.style.zIndex = '20002';
+    briefingDropdown.style.maxWidth = '600px';
+    briefingDropdown.style.maxHeight = '80vh';
+    briefingDropdown.style.overflowY = 'auto';
+    
+    // Add backdrop to body
+    document.body.appendChild(backdrop);
+    
+    // Close on backdrop click
+    backdrop.addEventListener('click', () => {
+      closeBriefing();
+      backdrop.remove();
+    });
   });
   
   // UPDATED Dashboard functionality with real-time listener
@@ -2241,7 +2266,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function closeBriefing() {
+    const briefingDropdown = document.getElementById('briefingDropdown');
     briefingDropdown.style.display = 'none';
+    
+    // Remove backdrop if it exists
+    const backdrop = document.getElementById('briefingBackdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
+    
+    // Reset position styles if they were changed for modal display
+    if (briefingDropdown.style.position === 'fixed') {
+      briefingDropdown.style.position = '';
+      briefingDropdown.style.top = '';
+      briefingDropdown.style.left = '';
+      briefingDropdown.style.transform = '';
+      briefingDropdown.style.zIndex = '';
+      briefingDropdown.style.maxWidth = '';
+      briefingDropdown.style.maxHeight = '';
+      briefingDropdown.style.overflowY = '';
+    }
   }
 
   briefingBtn.addEventListener('click', toggleBriefing);
