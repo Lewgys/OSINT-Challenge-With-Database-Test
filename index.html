@@ -971,11 +971,6 @@
       max-height: 300px;
       order: -1;
     }
-    
-    /* Hide briefing panel on smaller screens or make it overlay */
-    .countdown-overlay > div > div:last-child {
-      display: none !important;
-    }
   }
   
   @media (max-width: 768px) {
@@ -1116,67 +1111,38 @@
 
 <!-- Countdown Timer Overlay -->
 <div class="countdown-overlay" id="countdownOverlay">
-  <div style="display: flex; width: 100%; height: 100%; position: relative;">
-    <!-- Centered Countdown Container -->
-    <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
-      <div class="countdown-container" style="text-align: center; max-width: 800px; width: 90%; padding: 2rem;">
-        <h1 class="countdown-title">The OSINT Gauntlet</h1>
-        <p class="countdown-subtitle">Challenge begins in:</p>
-        
-        <div class="countdown-user-info" id="countdownUserInfo" style="display: none;">
-          <span id="countdownUserDisplay"></span>
-        </div>
-        
-        <div class="countdown-timer" id="countdownTimer">
-          <div class="countdown-unit">
-            <div class="countdown-number" id="countDays">00</div>
-            <div class="countdown-label">Days</div>
-          </div>
-          <div class="countdown-unit">
-            <div class="countdown-number" id="countHours">00</div>
-            <div class="countdown-label">Hours</div>
-          </div>
-          <div class="countdown-unit">
-            <div class="countdown-number" id="countMinutes">00</div>
-            <div class="countdown-label">Minutes</div>
-          </div>
-          <div class="countdown-unit">
-            <div class="countdown-number" id="countSeconds">00</div>
-            <div class="countdown-label">Seconds</div>
-          </div>
-        </div>
-        
-        <div id="countdownStarting" style="display: none;">
-          <p class="countdown-starting">STARTING NOW!</p>
-        </div>
+  <div class="countdown-container">
+    <h1 class="countdown-title">The OSINT Gauntlet</h1>
+    <p class="countdown-subtitle">Challenge begins in:</p>
+    
+    <div class="countdown-user-info" id="countdownUserInfo" style="display: none;">
+      <span id="countdownUserDisplay"></span>
+    </div>
+    
+    <div class="countdown-timer" id="countdownTimer">
+      <div class="countdown-unit">
+        <div class="countdown-number" id="countDays">00</div>
+        <div class="countdown-label">Days</div>
+      </div>
+      <div class="countdown-unit">
+        <div class="countdown-number" id="countHours">00</div>
+        <div class="countdown-label">Hours</div>
+      </div>
+      <div class="countdown-unit">
+        <div class="countdown-number" id="countMinutes">00</div>
+        <div class="countdown-label">Minutes</div>
+      </div>
+      <div class="countdown-unit">
+        <div class="countdown-number" id="countSeconds">00</div>
+        <div class="countdown-label">Seconds</div>
       </div>
     </div>
     
-    <!-- Briefing Panel - Fixed to Right -->
-    <div style="position: fixed; right: 0; top: 0; height: 100%; width: 400px; padding: 2rem; display: flex; align-items: center;">
-      <div style="width: 100%; background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%); border: 2px solid #b0d351; border-radius: 15px; padding: 1.5rem; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-        <div style="color: #b0d351; font-weight: 700; font-size: 1.3rem; margin-bottom: 1rem; text-align: center; border-bottom: 2px solid rgba(176, 211, 81, 0.3); padding-bottom: 0.5rem;">
-          📋 Briefing
-        </div>
-        <div style="color: #eee; line-height: 1.6; font-size: 0.95rem;">
-          <p>Welcome to Lewis' OSINT Challenge. This challenge is supposed to test you on a variety of different OSINT techniques. Within your team, it is highly likely that if you smash your heads together, you will complete all 5 Tasks at hand.</p>
-          
-          <p>The challenge at hand will have you investigating a malicious threat actor that has compromised an employee's system and left a note. It is your job to gather as much information as possible on the individual and answer the questions accordingly. I highly recommend that you dig deeper than you think throughout this.</p>
-          
-          <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid #ffc107; color: #ffecb3; padding: 1rem; border-radius: 8px; margin: 1rem 0; font-weight: 600;">
-            <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to the account holder and attempting brute-force attacks.
-
-            Just so you know, we want to encourage real-world OSINT skills, not source-diving and OWASP top 10, so don't test this page...
-          </div>
-          
-          <p>If you have any questions, please feel free to shoot any of the event organisers a message...Good Luck</p>
-          
-          <div style="text-align: right; color: #b0d351; font-weight: 600; margin-top: 1.5rem; font-style: italic;">
-            - Lewis G
-          </div>
-        </div>
-      </div>
+    <div id="countdownStarting" style="display: none;">
+      <p class="countdown-starting">STARTING NOW!</p>
     </div>
+    
+    <button class="countdown-briefing-btn" id="countdownBriefingBtn">📋 View Briefing</button>
   </div>
 </div>
 
@@ -2147,6 +2113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const countdownOverlay = document.getElementById('countdownOverlay');
   const countdownUserInfo = document.getElementById('countdownUserInfo');
   const countdownUserDisplay = document.getElementById('countdownUserDisplay');
+  const countdownBriefingBtn = document.getElementById('countdownBriefingBtn');
   
   // Check challenge status from server
   const status = await checkChallengeStatus();
@@ -2226,92 +2193,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
-  // Countdown briefing button - show briefing as a modal
+  // Countdown briefing button - reuse existing briefing functionality
   countdownBriefingBtn.addEventListener('click', () => {
-    // Create a modal container for the briefing
-    const briefingModal = document.createElement('div');
-    briefingModal.style.position = 'fixed';
-    briefingModal.style.top = '0';
-    briefingModal.style.left = '0';
-    briefingModal.style.width = '100%';
-    briefingModal.style.height = '100%';
-    briefingModal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-    briefingModal.style.zIndex = '25000';
-    briefingModal.style.display = 'flex';
-    briefingModal.style.alignItems = 'center';
-    briefingModal.style.justifyContent = 'center';
-    briefingModal.id = 'briefingModal';
-    
-    // Create briefing content container
-    const briefingContent = document.createElement('div');
-    briefingContent.style.background = 'linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%)';
-    briefingContent.style.border = '2px solid #b0d351';
-    briefingContent.style.borderRadius = '12px';
-    briefingContent.style.padding = '1.5rem';
-    briefingContent.style.maxWidth = '600px';
-    briefingContent.style.width = '90%';
-    briefingContent.style.maxHeight = '80vh';
-    briefingContent.style.overflowY = 'auto';
-    briefingContent.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
-    briefingContent.style.position = 'relative';
-    
-    // Clone the briefing content
-    const originalBriefing = document.querySelector('.briefing-content');
-    const briefingTitle = document.querySelector('.briefing-title');
-    
-    // Create close button
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '✕';
-    closeBtn.style.position = 'absolute';
-    closeBtn.style.top = '0.5rem';
-    closeBtn.style.right = '0.5rem';
-    closeBtn.style.background = 'none';
-    closeBtn.style.border = 'none';
-    closeBtn.style.color = '#999';
-    closeBtn.style.fontSize = '1.5rem';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.style.padding = '0.25rem';
-    closeBtn.style.borderRadius = '4px';
-    closeBtn.style.transition = 'color 0.3s ease';
-    
-    closeBtn.onmouseover = () => { closeBtn.style.color = '#b0d351'; };
-    closeBtn.onmouseout = () => { closeBtn.style.color = '#999'; };
-    
-    // Add content to container
-    briefingContent.innerHTML = `
-      <div style="color: #b0d351; font-weight: 700; font-size: 1.2rem; margin-bottom: 1rem; text-align: center;">
-        Briefing
-      </div>
-      ${originalBriefing.innerHTML}
-    `;
-    briefingContent.appendChild(closeBtn);
-    
-    // Add content to modal
-    briefingModal.appendChild(briefingContent);
-    
-    // Add modal to body
-    document.body.appendChild(briefingModal);
-    
-    // Close handlers
-    const closeBriefingModal = () => {
-      briefingModal.remove();
-    };
-    
-    closeBtn.addEventListener('click', closeBriefingModal);
-    briefingModal.addEventListener('click', (e) => {
-      if (e.target === briefingModal) {
-        closeBriefingModal();
-      }
-    });
-    
-    // Close on escape key
-    const escapeHandler = (e) => {
-      if (e.key === 'Escape') {
-        closeBriefingModal();
-        document.removeEventListener('keydown', escapeHandler);
-      }
-    };
-    document.addEventListener('keydown', escapeHandler);
+    const briefingDropdown = document.getElementById('briefingDropdown');
+    briefingDropdown.style.position = 'fixed';
+    briefingDropdown.style.top = '50%';
+    briefingDropdown.style.left = '50%';
+    briefingDropdown.style.transform = 'translate(-50%, -50%)';
+    briefingDropdown.style.display = 'block';
+    briefingDropdown.style.zIndex = '20001';
   });
   
   // UPDATED Dashboard functionality with real-time listener
@@ -2337,7 +2227,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const briefingClose = document.getElementById('briefingClose');
 
   function toggleBriefing() {
-    const briefingDropdown = document.getElementById('briefingDropdown');
     const isVisible = briefingDropdown.style.display === 'block';
     briefingDropdown.style.display = isVisible ? 'none' : 'block';
     
@@ -2348,33 +2237,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       briefingDropdown.style.left = '';
       briefingDropdown.style.transform = '';
       briefingDropdown.style.zIndex = '';
-      briefingDropdown.style.maxWidth = '';
-      briefingDropdown.style.maxHeight = '';
-      briefingDropdown.style.overflowY = '';
     }
   }
 
   function closeBriefing() {
-    const briefingDropdown = document.getElementById('briefingDropdown');
     briefingDropdown.style.display = 'none';
-    
-    // Remove backdrop if it exists
-    const backdrop = document.getElementById('briefingBackdrop');
-    if (backdrop) {
-      backdrop.remove();
-    }
-    
-    // Reset position styles if they were changed for modal display
-    if (briefingDropdown.style.position === 'fixed') {
-      briefingDropdown.style.position = '';
-      briefingDropdown.style.top = '';
-      briefingDropdown.style.left = '';
-      briefingDropdown.style.transform = '';
-      briefingDropdown.style.zIndex = '';
-      briefingDropdown.style.maxWidth = '';
-      briefingDropdown.style.maxHeight = '';
-      briefingDropdown.style.overflowY = '';
-    }
   }
 
   briefingBtn.addEventListener('click', toggleBriefing);
