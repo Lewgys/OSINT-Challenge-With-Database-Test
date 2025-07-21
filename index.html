@@ -2337,6 +2337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const briefingClose = document.getElementById('briefingClose');
 
   function toggleBriefing() {
+    const briefingDropdown = document.getElementById('briefingDropdown');
     const isVisible = briefingDropdown.style.display === 'block';
     briefingDropdown.style.display = isVisible ? 'none' : 'block';
     
@@ -2347,6 +2348,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       briefingDropdown.style.left = '';
       briefingDropdown.style.transform = '';
       briefingDropdown.style.zIndex = '';
+      briefingDropdown.style.maxWidth = '';
+      briefingDropdown.style.maxHeight = '';
+      briefingDropdown.style.overflowY = '';
     }
   }
 
