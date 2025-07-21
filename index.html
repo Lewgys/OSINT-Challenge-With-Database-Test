@@ -2195,38 +2195,90 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Countdown briefing button - show briefing as a modal
   countdownBriefingBtn.addEventListener('click', () => {
-    const briefingDropdown = document.getElementById('briefingDropdown');
+    // Create a modal container for the briefing
+    const briefingModal = document.createElement('div');
+    briefingModal.style.position = 'fixed';
+    briefingModal.style.top = '0';
+    briefingModal.style.left = '0';
+    briefingModal.style.width = '100%';
+    briefingModal.style.height = '100%';
+    briefingModal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    briefingModal.style.zIndex = '25000';
+    briefingModal.style.display = 'flex';
+    briefingModal.style.alignItems = 'center';
+    briefingModal.style.justifyContent = 'center';
+    briefingModal.id = 'briefingModal';
     
-    // Create a backdrop for the briefing modal
-    const backdrop = document.createElement('div');
-    backdrop.style.position = 'fixed';
-    backdrop.style.top = '0';
-    backdrop.style.left = '0';
-    backdrop.style.width = '100%';
-    backdrop.style.height = '100%';
-    backdrop.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-    backdrop.style.zIndex = '20001';
-    backdrop.id = 'briefingBackdrop';
+    // Create briefing content container
+    const briefingContent = document.createElement('div');
+    briefingContent.style.background = 'linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%)';
+    briefingContent.style.border = '2px solid #b0d351';
+    briefingContent.style.borderRadius = '12px';
+    briefingContent.style.padding = '1.5rem';
+    briefingContent.style.maxWidth = '600px';
+    briefingContent.style.width = '90%';
+    briefingContent.style.maxHeight = '80vh';
+    briefingContent.style.overflowY = 'auto';
+    briefingContent.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+    briefingContent.style.position = 'relative';
     
-    // Set briefing dropdown styles for modal display
-    briefingDropdown.style.position = 'fixed';
-    briefingDropdown.style.top = '50%';
-    briefingDropdown.style.left = '50%';
-    briefingDropdown.style.transform = 'translate(-50%, -50%)';
-    briefingDropdown.style.display = 'block';
-    briefingDropdown.style.zIndex = '20002';
-    briefingDropdown.style.maxWidth = '600px';
-    briefingDropdown.style.maxHeight = '80vh';
-    briefingDropdown.style.overflowY = 'auto';
+    // Clone the briefing content
+    const originalBriefing = document.querySelector('.briefing-content');
+    const briefingTitle = document.querySelector('.briefing-title');
     
-    // Add backdrop to body
-    document.body.appendChild(backdrop);
+    // Create close button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '0.5rem';
+    closeBtn.style.right = '0.5rem';
+    closeBtn.style.background = 'none';
+    closeBtn.style.border = 'none';
+    closeBtn.style.color = '#999';
+    closeBtn.style.fontSize = '1.5rem';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.padding = '0.25rem';
+    closeBtn.style.borderRadius = '4px';
+    closeBtn.style.transition = 'color 0.3s ease';
     
-    // Close on backdrop click
-    backdrop.addEventListener('click', () => {
-      closeBriefing();
-      backdrop.remove();
+    closeBtn.onmouseover = () => { closeBtn.style.color = '#b0d351'; };
+    closeBtn.onmouseout = () => { closeBtn.style.color = '#999'; };
+    
+    // Add content to container
+    briefingContent.innerHTML = `
+      <div style="color: #b0d351; font-weight: 700; font-size: 1.2rem; margin-bottom: 1rem; text-align: center;">
+        Briefing
+      </div>
+      ${originalBriefing.innerHTML}
+    `;
+    briefingContent.appendChild(closeBtn);
+    
+    // Add content to modal
+    briefingModal.appendChild(briefingContent);
+    
+    // Add modal to body
+    document.body.appendChild(briefingModal);
+    
+    // Close handlers
+    const closeBriefingModal = () => {
+      briefingModal.remove();
+    };
+    
+    closeBtn.addEventListener('click', closeBriefingModal);
+    briefingModal.addEventListener('click', (e) => {
+      if (e.target === briefingModal) {
+        closeBriefingModal();
+      }
     });
+    
+    // Close on escape key
+    const escapeHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeBriefingModal();
+        document.removeEventListener('keydown', escapeHandler);
+      }
+    };
+    document.addEventListener('keydown', escapeHandler);
   });
   
   // UPDATED Dashboard functionality with real-time listener
