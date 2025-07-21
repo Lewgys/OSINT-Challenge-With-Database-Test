@@ -1268,23 +1268,8 @@ const CONFIG = {
   FIREWORKS_PARTICLES: 120,
   ANIMATION_DURATION: 5000,
   STORAGE_KEY: 'osint_challenge_progress',
-  VAL_TOWN_API: 'https://Lewgys--aa56c8f844a711f0b0d776b3cceeab13.web.val.run',
-  // SET YOUR CHALLENGE START TIME HERE (24-hour format)
-  CHALLENGE_START_TIME: {
-    year: 2025,
-    month: 6, // 0-indexed (0 = January, 11 = December)
-    day: 20,
-    hour: 20, // 2 PM
-    minute: 50,
-    second: 0
-  }
+  VAL_TOWN_API: 'https://Lewgys--aa56c8f844a711f0b0d776b3cceeab13.web.val.run'
 };
-
-// Get the challenge start time as a Date object
-function getChallengeStartTime() {
-  const { year, month, day, hour, minute, second } = CONFIG.CHALLENGE_START_TIME;
-  return new Date(year, month, day, hour, minute, second);
-}
 
 // Session storage key for user persistence
 const SESSION_STORAGE_KEY = 'osint_challenge_user_session';
@@ -1294,6 +1279,7 @@ const COUNTDOWN_STORAGE_KEY = 'osint_challenge_registered_before_start';
 let currentUser = null;
 let countdownInterval = null;
 let challengeStarted = false;
+let challengeStartTime = null;
 
 // Global achievements system
 const ACHIEVEMENTS = {
@@ -1352,11 +1338,41 @@ let leaderboardListener = null;
 let leaderboardData = new Map();
 let isLeaderboardInitialized = false;
 
+// Check challenge status from server
+async function checkChallengeStatus() {
+  try {
+    const response = await fetch(CONFIG.VAL_TOWN_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'checkStatus' })
+    });
+    
+    const data = await response.json();
+    
+    if (data.started) {
+      challengeStarted = true;
+      return { started: true };
+    } else {
+      challengeStartTime = new Date(data.startsAt);
+      return { 
+        started: false, 
+        startsAt: challengeStartTime,
+        timeRemaining: data.timeRemaining 
+      };
+    }
+  } catch (error) {
+    console.error('Error checking status:', error);
+    // Fallback behavior - assume challenge hasn't started
+    return { started: false };
+  }
+}
+
 // Countdown Timer Functions
 function updateCountdown() {
+  if (!challengeStartTime) return;
+  
   const now = new Date();
-  const startTime = getChallengeStartTime();
-  const diff = startTime - now;
+  const diff = challengeStartTime - now;
   
   if (diff <= 0) {
     // Challenge has started!
@@ -1406,18 +1422,6 @@ function initializeGame() {
   
   // Show dashboard button
   document.getElementById('dashboardBtn').style.display = 'block';
-}
-
-// Check if challenge has already started
-function checkChallengeStatus() {
-  const now = new Date();
-  const startTime = getChallengeStartTime();
-  
-  if (now >= startTime) {
-    challengeStarted = true;
-    return true;
-  }
-  return false;
 }
 
 // Modified Session management functions
@@ -2098,7 +2102,7 @@ async function loadLeaderboard() {
 }
 
 // Login functionality with countdown
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const loginForm = document.getElementById('loginForm');
   const loginModal = document.getElementById('loginModal');
   const userInfo = document.getElementById('userInfo');
@@ -2111,8 +2115,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const countdownUserDisplay = document.getElementById('countdownUserDisplay');
   const countdownBriefingBtn = document.getElementById('countdownBriefingBtn');
   
-  // Check if challenge has already started
-  if (checkChallengeStatus()) {
+  // Check challenge status from server
+  const status = await checkChallengeStatus();
+  
+  if (status.started) {
     // Challenge already started, proceed normally
     const existingSession = loadUserSession();
     if (existingSession) {
@@ -2156,7 +2162,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    const isPreRegistration = !checkChallengeStatus();
+    // Check current status again
+    const currentStatus = await checkChallengeStatus();
+    const isPreRegistration = !currentStatus.started;
     const userId = await saveUserToFirebase(name, team, isPreRegistration);
     
     if (userId) {
@@ -2590,6 +2598,13 @@ class OSINTChallenge {
           userId: currentUser?.id || 'anonymous'
         })
       });
+
+      if (response.status === 403) {
+        const data = await response.json();
+        this.showFeedback(feedbackP, 'Challenge has not started yet!', 'error');
+        console.log(`Challenge starts at: ${data.startsAt}`);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error('Validation failed');
