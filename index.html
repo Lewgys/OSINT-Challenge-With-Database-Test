@@ -972,19 +972,9 @@
       order: -1;
     }
     
-    /* Stack countdown and briefing vertically on smaller screens */
-    .countdown-overlay > div {
-      flex-direction: column !important;
-      align-items: center;
-    }
-    
-    .countdown-overlay .countdown-container {
-      max-width: 600px;
-    }
-    
+    /* Hide briefing panel on smaller screens or make it overlay */
     .countdown-overlay > div > div:last-child {
-      width: 100% !important;
-      max-width: 600px;
+      display: none !important;
     }
   }
   
@@ -1126,60 +1116,64 @@
 
 <!-- Countdown Timer Overlay -->
 <div class="countdown-overlay" id="countdownOverlay">
-  <div style="display: flex; width: 100%; height: 100%; max-width: 1400px; margin: 0 auto; gap: 2rem; padding: 2rem;">
-    <!-- Countdown Container -->
-    <div class="countdown-container" style="flex: 1;">
-      <h1 class="countdown-title">The OSINT Gauntlet</h1>
-      <p class="countdown-subtitle">Challenge begins in:</p>
-      
-      <div class="countdown-user-info" id="countdownUserInfo" style="display: none;">
-        <span id="countdownUserDisplay"></span>
-      </div>
-      
-      <div class="countdown-timer" id="countdownTimer">
-        <div class="countdown-unit">
-          <div class="countdown-number" id="countDays">00</div>
-          <div class="countdown-label">Days</div>
+  <div style="display: flex; width: 100%; height: 100%; position: relative;">
+    <!-- Centered Countdown Container -->
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+      <div class="countdown-container" style="text-align: center; max-width: 800px; width: 90%; padding: 2rem;">
+        <h1 class="countdown-title">The OSINT Gauntlet</h1>
+        <p class="countdown-subtitle">Challenge begins in:</p>
+        
+        <div class="countdown-user-info" id="countdownUserInfo" style="display: none;">
+          <span id="countdownUserDisplay"></span>
         </div>
-        <div class="countdown-unit">
-          <div class="countdown-number" id="countHours">00</div>
-          <div class="countdown-label">Hours</div>
+        
+        <div class="countdown-timer" id="countdownTimer">
+          <div class="countdown-unit">
+            <div class="countdown-number" id="countDays">00</div>
+            <div class="countdown-label">Days</div>
+          </div>
+          <div class="countdown-unit">
+            <div class="countdown-number" id="countHours">00</div>
+            <div class="countdown-label">Hours</div>
+          </div>
+          <div class="countdown-unit">
+            <div class="countdown-number" id="countMinutes">00</div>
+            <div class="countdown-label">Minutes</div>
+          </div>
+          <div class="countdown-unit">
+            <div class="countdown-number" id="countSeconds">00</div>
+            <div class="countdown-label">Seconds</div>
+          </div>
         </div>
-        <div class="countdown-unit">
-          <div class="countdown-number" id="countMinutes">00</div>
-          <div class="countdown-label">Minutes</div>
+        
+        <div id="countdownStarting" style="display: none;">
+          <p class="countdown-starting">STARTING NOW!</p>
         </div>
-        <div class="countdown-unit">
-          <div class="countdown-number" id="countSeconds">00</div>
-          <div class="countdown-label">Seconds</div>
-        </div>
-      </div>
-      
-      <div id="countdownStarting" style="display: none;">
-        <p class="countdown-starting">STARTING NOW!</p>
       </div>
     </div>
     
-    <!-- Briefing Panel -->
-    <div style="width: 400px; background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%); border: 2px solid #b0d351; border-radius: 15px; padding: 1.5rem; height: fit-content; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-      <div style="color: #b0d351; font-weight: 700; font-size: 1.3rem; margin-bottom: 1rem; text-align: center; border-bottom: 2px solid rgba(176, 211, 81, 0.3); padding-bottom: 0.5rem;">
-        📋 Briefing
-      </div>
-      <div style="color: #eee; line-height: 1.6; font-size: 0.95rem;">
-        <p>Welcome to Lewis' OSINT Challenge. This challenge is supposed to test you on a variety of different OSINT techniques. Within your team, it is highly likely that if you smash your heads together, you will complete all 5 Tasks at hand.</p>
-        
-        <p>The challenge at hand will have you investigating a malicious threat actor that has compromised an employee's system and left a note. It is your job to gather as much information as possible on the individual and answer the questions accordingly. I highly recommend that you dig deeper than you think throughout this.</p>
-        
-        <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid #ffc107; color: #ffecb3; padding: 1rem; border-radius: 8px; margin: 1rem 0; font-weight: 600;">
-          <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to the account holder and attempting brute-force attacks.
-
-          Just so you know, we want to encourage real-world OSINT skills, not source-diving and OWASP top 10, so don't test this page...
+    <!-- Briefing Panel - Fixed to Right -->
+    <div style="position: fixed; right: 0; top: 0; height: 100%; width: 400px; padding: 2rem; display: flex; align-items: center;">
+      <div style="width: 100%; background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%); border: 2px solid #b0d351; border-radius: 15px; padding: 1.5rem; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <div style="color: #b0d351; font-weight: 700; font-size: 1.3rem; margin-bottom: 1rem; text-align: center; border-bottom: 2px solid rgba(176, 211, 81, 0.3); padding-bottom: 0.5rem;">
+          📋 Briefing
         </div>
-        
-        <p>If you have any questions, please feel free to shoot any of the event organisers a message...Good Luck</p>
-        
-        <div style="text-align: right; color: #b0d351; font-weight: 600; margin-top: 1.5rem; font-style: italic;">
-          - Lewis G
+        <div style="color: #eee; line-height: 1.6; font-size: 0.95rem;">
+          <p>Welcome to Lewis' OSINT Challenge. This challenge is supposed to test you on a variety of different OSINT techniques. Within your team, it is highly likely that if you smash your heads together, you will complete all 5 Tasks at hand.</p>
+          
+          <p>The challenge at hand will have you investigating a malicious threat actor that has compromised an employee's system and left a note. It is your job to gather as much information as possible on the individual and answer the questions accordingly. I highly recommend that you dig deeper than you think throughout this.</p>
+          
+          <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid #ffc107; color: #ffecb3; padding: 1rem; border-radius: 8px; margin: 1rem 0; font-weight: 600;">
+            <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to the account holder and attempting brute-force attacks.
+
+            Just so you know, we want to encourage real-world OSINT skills, not source-diving and OWASP top 10, so don't test this page...
+          </div>
+          
+          <p>If you have any questions, please feel free to shoot any of the event organisers a message...Good Luck</p>
+          
+          <div style="text-align: right; color: #b0d351; font-weight: 600; margin-top: 1.5rem; font-style: italic;">
+            - Lewis G
+          </div>
         </div>
       </div>
     </div>
