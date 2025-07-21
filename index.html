@@ -2148,6 +2148,161 @@ document.addEventListener('DOMContentLoaded', async () => {
   const countdownUserInfo = document.getElementById('countdownUserInfo');
   const countdownUserDisplay = document.getElementById('countdownUserDisplay');
   
+  // Briefing functionality
+  const briefingBtn = document.getElementById('briefingBtn');
+  const briefingDropdown = document.getElementById('briefingDropdown');
+  const briefingClose = document.getElementById('briefingClose');
+
+  function toggleBriefing() {
+    const briefingDropdown = document.getElementById('briefingDropdown');
+    const isVisible = briefingDropdown.style.display === 'block';
+    briefingDropdown.style.display = isVisible ? 'none' : 'block';
+    
+    // Reset position if it was moved for countdown
+    if (briefingDropdown.style.position === 'fixed') {
+      briefingDropdown.style.position = '';
+      briefingDropdown.style.top = '';
+      briefingDropdown.style.left = '';
+      briefingDropdown.style.transform = '';
+      briefingDropdown.style.zIndex = '';
+      briefingDropdown.style.maxWidth = '';
+      briefingDropdown.style.maxHeight = '';
+      briefingDropdown.style.overflowY = '';
+    }
+  }
+
+  function closeBriefing() {
+    const briefingDropdown = document.getElementById('briefingDropdown');
+    briefingDropdown.style.display = 'none';
+    
+    // Remove backdrop if it exists
+    const backdrop = document.getElementById('briefingBackdrop');
+    if (backdrop) {
+      backdrop.remove();
+    }
+    
+    // Reset position styles if they were changed for modal display
+    if (briefingDropdown.style.position === 'fixed') {
+      briefingDropdown.style.position = '';
+      briefingDropdown.style.top = '';
+      briefingDropdown.style.left = '';
+      briefingDropdown.style.transform = '';
+      briefingDropdown.style.zIndex = '';
+      briefingDropdown.style.maxWidth = '';
+      briefingDropdown.style.maxHeight = '';
+      briefingDropdown.style.overflowY = '';
+    }
+  }
+
+  // Set up briefing event listeners
+  if (briefingBtn) {
+    briefingBtn.addEventListener('click', toggleBriefing);
+  }
+  
+  if (briefingClose) {
+    briefingClose.addEventListener('click', closeBriefing);
+  }
+
+  // Close briefing when clicking outside
+  document.addEventListener('click', (e) => {
+    const briefingBtn = document.getElementById('briefingBtn');
+    const briefingDropdown = document.getElementById('briefingDropdown');
+    
+    if (briefingBtn && briefingDropdown &&
+        !briefingBtn.contains(e.target) && 
+        !briefingDropdown.contains(e.target)) {
+      closeBriefing();
+    }
+  });
+
+  // Close briefing on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeBriefing();
+      if (dashboardModal && dashboardModal.classList.contains('active')) {
+        dashboardModal.classList.remove('active');
+      }
+    }
+  });
+  
+  // Check challenge status from server
+  const status = await checkChallengeStatus();
+  
+  if (status.started) {
+    // Challenge already started, proceed normally
+    const existingSession = loadUserSession();
+    if (existingSession) {
+      // Restore user session
+      currentUser = existingSession;
+      loginModal.classList.remove('active');
+      userInfo.classList.add('active');
+      userDisplay.textContent = `${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
+      
+      //Initialize the main challenge immediately
+      initializeGame();
+    }
+  } else {
+    // Challenge hasn't started yet
+    const existingSession = loadUserSession();
+    if (existingSession && localStorage.getItem(COUNTDOWN_STORAGE_KEY)) {
+      // User already registered before start
+      currentUser = existingSession;
+      loginModal.classList.remove('active');
+      
+      // Show countdown with user info
+      countdownOverlay.classList.add('active');
+      countdownUserInfo.style.display = 'block';
+      countdownUserDisplay.textContent = `Registered as: ${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
+      
+      // Start countdown
+      updateCountdown();
+      countdownInterval = setInterval(updateCountdown, 1000);
+    }
+    // Otherwise, show login modal as normal
+  }
+  
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById('userName').value.trim();
+    const team = document.getElementById('userTeam').value.trim();
+    
+    if (!name) {
+      document.getElementById('loginError').textContent = 'Please enter your name';
+      return;
+    }
+    
+    // Check current status again
+    const currentStatus = await checkChallengeStatus();
+    const isPreRegistration = !currentStatus.started;
+    const userId = await saveUserToFirebase(name, team, isPreRegistration);
+    
+    if (userId) {
+      currentUser = { id: userId, name, team };
+      loginModal.classList.remove('active');
+      
+      if (isPreRegistration) {
+        // Show countdown overlay
+        countdownOverlay.classList.add('active');
+        countdownUserInfo.style.display = 'block';
+        countdownUserDisplay.textContent = `Registered as: ${name}${team ? ` (${team})` : ''}`;
+        
+        // Start countdown
+        updateCountdown();
+        countdownInterval = setInterval(updateCountdown, 1000);
+      } else {
+        // Challenge already started, proceed normally
+        userInfo.classList.add('active');
+        userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
+        
+        //Initialize the main challenge
+        initializeGame();
+      }
+    } else {
+      document.getElementById('loginError').textContent = 'Error starting challenge. Please try again.';
+    }
+  });
+  
   // Check challenge status from server
   const status = await checkChallengeStatus();
   
@@ -2382,9 +2537,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Close briefing when clicking outside
   document.addEventListener('click', (e) => {
-    if (!briefingBtn.contains(e.target) && 
+    const briefingBtn = document.getElementById('briefingBtn');
+    const briefingDropdown = document.getElementById('briefingDropdown');
+    const countdownBriefingBtn = document.getElementById('countdownBriefingBtn');
+    
+    if (briefingBtn && briefingDropdown &&
+        !briefingBtn.contains(e.target) && 
         !briefingDropdown.contains(e.target) && 
-        !countdownBriefingBtn.contains(e.target)) {
+        (!countdownBriefingBtn || !countdownBriefingBtn.contains(e.target))) {
       closeBriefing();
     }
   });
