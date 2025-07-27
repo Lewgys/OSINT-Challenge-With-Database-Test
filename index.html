@@ -837,75 +837,6 @@
   .task-badge.completed {
     background: linear-gradient(45deg, #4caf50, #45a049);
     color: white;
-  }
-  
-  .task-badge.locked {
-    background: #444;
-    color: #666;
-  }
-  
-  .task-content {
-    margin-top: 1.5rem;
-    display: none;
-    animation: fadeIn 0.3s ease;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  
-  .question-container {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 8px;
-    border: 1px solid rgba(176, 211, 81, 0.1);
-  }
-  
-  .question-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.5rem;
-  }
-  
-  .task-content p.question {
-    margin: 0;
-    font-weight: 600;
-    color: #f0f0f0;
-    padding: 0.5rem;
-    background: rgba(176, 211, 81, 0.1);
-    border-radius: 8px;
-    border-left: 3px solid #b0d351;
-    flex: 1;
-    margin-right: 0.5rem;
-  }
-  
-  .task-content input[type="text"] {
-    width: 100%;
-    padding: 0.8rem;
-    border-radius: 8px;
-    border: 2px solid #333;
-    outline: none;
-    font-size: 1rem;
-    background: #2a2a2a;
-    color: #eee;
-    transition: border-color 0.3s ease;
-    margin-top: 0.5rem;
-  }
-  
-  .task-content input[type="text"]:focus {
-    border-color: #b0d351;
-    box-shadow: 0 0 10px rgba(176, 211, 81, 0.3);
-  }
-  
-  .task-content button.submit-btn {
-    margin-top: 1rem;
-    background: linear-gradient(45deg, #b0d351, #6a7740);
-    border: none;
-    padding: 0.8rem 2rem;
-    color: white;
     font-weight: 700;
     font-size: 1rem;
     border-radius: 8px;
@@ -1022,6 +953,77 @@
   li.task.bonus .task-badge.completed {
     background: linear-gradient(45deg, #ffd700, #ffed4e);
     color: #1a1a1a;
+  }
+
+    }
+  
+  .task-badge.locked {
+    background: #444;
+    color: #666;
+  }
+  
+  .task-content {
+    margin-top: 1.5rem;
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .question-container {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(176, 211, 81, 0.1);
+  }
+  
+  .question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+  }
+  
+  .task-content p.question {
+    margin: 0;
+    font-weight: 600;
+    color: #f0f0f0;
+    padding: 0.5rem;
+    background: rgba(176, 211, 81, 0.1);
+    border-radius: 8px;
+    border-left: 3px solid #b0d351;
+    flex: 1;
+    margin-right: 0.5rem;
+  }
+  
+  .task-content input[type="text"] {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 8px;
+    border: 2px solid #333;
+    outline: none;
+    font-size: 1rem;
+    background: #2a2a2a;
+    color: #eee;
+    transition: border-color 0.3s ease;
+    margin-top: 0.5rem;
+  }
+  
+  .task-content input[type="text"]:focus {
+    border-color: #b0d351;
+    box-shadow: 0 0 10px rgba(176, 211, 81, 0.3);
+  }
+  
+  .task-content button.submit-btn {
+    margin-top: 1rem;
+    background: linear-gradient(45deg, #b0d351, #6a7740);
+    border: none;
+    padding: 0.8rem 2rem;
+    color: white;
   }
   
   li.task.bonus .task-badge:not(.completed) {
@@ -1802,7 +1804,7 @@ function sanitizeInput(input) {
   return input.trim().replace(/[<>]/g, '');
 }
 
-// Tasks configuration WITHOUT ANSWERS
+// Tasks configuration WITHOUT ANSWERS AND WITHOUT HINTS
 const tasks = [
   {
     id: 'task1',
@@ -1811,10 +1813,7 @@ const tasks = [
     questions: [
       'What username does the attacker go by? (Click <a href="https://lewgys.github.io/The_OSINT_Gauntlet/images/pwnedletter.svg" data-original-path="/Users/beansbently/Desktop/Screenshots/pwned_note.png" data-uploaded-by="beansbently" target="_blank" rel="noopener noreferrer">here</a> to view the tip-off image.)'
     ],
-    keys: 1,
-    hints: [
-      ['No hints on Task 1 nice try lol', 'Nice try, still no hints on Task 1...Unless you get it wrong again', 'I lied no Hints :)']
-    ]
+    keys: 1
   },
   {
     id: 'task2',
@@ -1824,11 +1823,7 @@ const tasks = [
       'What is the full email address of the attacker?',
       'What is the attacker\'s full real name?'
     ],
-    keys: 2,
-    hints: [
-      ['Try searching the username on different platforms', 'Look for profile information on professional sites', 'GitHub'],
-      ['Social media profiles often contain real names', 'Look through social media', 'No more hints :)']
-    ]
+    keys: 2
   },
   {
     id: 'task3',
@@ -1840,13 +1835,7 @@ const tasks = [
       'What mining pool did the attacker receive crypto from on January 23rd, 2021?',
       'What other cryptocurrency did the attacker exchange with?'
     ],
-    keys: 4,
-    hints: [
-      ['Look for cryptocurrency mentions in profiles', 'Check for wallet address files', 'ETH is a common cryptocurrency'],
-      ['Wallet addresses are long alphanumeric strings', 'Check social media profiles for addresses', 'Look Deeper into pre-existing files'],
-      ['Use blockchain explorers to trace transactions', 'Check transaction history for the date', 'Mining pools have identifiable names'],
-      ['Look at exchange transactions', 'Check what was traded for', 'No more hints :)']
-    ]
+    keys: 4
   },
   {
     id: 'task4',
@@ -1856,11 +1845,7 @@ const tasks = [
       'What is the attacker\'s current Twitter (X) handle?',
       'At what company was the attacker last employed at?'
     ],
-    keys: 2,
-    hints: [
-      ['Try variations of known usernames', 'Check for similar handles', 'No More Hints :)'],
-      ['Check professional networking sites', 'Look for employment history', 'What documents are usually found to have past experience?']
-    ]
+    keys: 2
   },
   {
     id: 'task5',
@@ -1870,11 +1855,7 @@ const tasks = [
       'What airport is closest to the location where the attacker shared a photo prior to getting on their flight? (Airport code)',
       'What airport is the attacker having a layover at? (Airport code)'
     ],
-    keys: 2,
-    hints: [
-      ['Look for landmarks in photos', 'Reverse Image Search is a good tool', 'No More Hints!'],
-      ['Anything stand out in the picture?', 'No More Hints :)', 'No More Hints :)']
-    ]
+    keys: 2
   },
   {
     id: 'task6',
@@ -1886,12 +1867,7 @@ const tasks = [
       'On what day did BeansBently get his favorite Caffeinated Beverage? (Provide answer in following format: DD/MM/YYYY)'
     ],
     keys: 3,
-    hiddenUntil: 'task5',
-    hints: [
-      ['Delve Deeper into places you have already been', 'you need to DIG deeper', 'This is a bonus round, you do not get a third hint ;)'],
-      ['Sometimes the answer is hidden in plain sight', 'No More Hints :)', 'No More Hints :)'],
-      ['Check social media posts carefully', 'Look for coffee-related posts', 'Check the metadata or post dates']
-    ]
+    hiddenUntil: 'task5'
   }
 ];
 
@@ -2856,9 +2832,7 @@ class OSINTChallenge {
     return index > 0 && !this.completedTasks[tasks[index - 1]?.id];
   }
 
-  showQuestionHint(task, questionIndex, hintText, hintBtn) {
-    if (!task.hints || !task.hints[questionIndex]) return;
-    
+  async showQuestionHint(task, questionIndex, hintText, hintBtn) {
     // Initialize question attempts if not exists
     const questionKey = `${task.id}_q${questionIndex}`;
     if (!this.questionAttempts[questionKey]) {
@@ -2866,26 +2840,50 @@ class OSINTChallenge {
     }
     
     const attemptCount = this.questionAttempts[questionKey];
-    const availableHints = task.hints[questionIndex];
-    const hintIndex = Math.min(attemptCount, availableHints.length - 1);
     
     if (hintText.style.display === 'block') {
       hintText.style.display = 'none';
       hintBtn.textContent = 'Hint';
     } else {
-      // Increment hint counter
-      this.hintClickCount++;
-      this.taskHintsUsed[task.id]++;
-      this.saveHintCount();
-      this.updateHintCounter();
-      
-      // Check for hint achievements
-      console.log('Checking hint achievements, hint count:', this.hintClickCount);
-      checkAchievements('hint_used', { hintCount: this.hintClickCount });
-      
-      hintText.textContent = availableHints[hintIndex];
-      hintText.style.display = 'block';
-      hintBtn.textContent = 'Hide';
+      try {
+        // Fetch hint from API
+        const response = await fetch(CONFIG.VAL_TOWN_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'getHint',
+            hintRequest: {
+              taskId: task.id,
+              questionIndex: questionIndex,
+              attemptCount: attemptCount
+            }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch hint');
+        }
+
+        const result = await response.json();
+        
+        // Increment hint counter
+        this.hintClickCount++;
+        this.taskHintsUsed[task.id]++;
+        this.saveHintCount();
+        this.updateHintCounter();
+        
+        // Check for hint achievements
+        console.log('Checking hint achievements, hint count:', this.hintClickCount);
+        checkAchievements('hint_used', { hintCount: this.hintClickCount });
+        
+        hintText.textContent = result.hint;
+        hintText.style.display = 'block';
+        hintBtn.textContent = 'Hide';
+      } catch (error) {
+        console.error('Error fetching hint:', error);
+        hintText.textContent = 'Unable to load hint. Please try again.';
+        hintText.style.display = 'block';
+      }
     }
   }
 
