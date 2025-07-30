@@ -25,6 +25,52 @@
     gap: 2rem;
   }
 
+  /* Auth Loading State - NEW */
+  .auth-checking {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 30000;
+    flex-direction: column;
+  }
+
+  .auth-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(176, 211, 81, 0.2);
+    border-top: 4px solid #b0d351;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+
+  .auth-loading-text {
+    color: #b0d351;
+    font-size: 1.1rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Hide modals initially to prevent flash - NEW */
+  #loginModal {
+    display: none;
+  }
+
+  #countdownOverlay {
+    display: none;
+  }
+
   /* Countdown Timer Styles */
   .countdown-overlay {
     position: fixed;
@@ -34,7 +80,6 @@
     height: 100%;
     background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
     z-index: 20000;
-    display: none;
     align-items: center;
     justify-content: center;
     flex-direction: column;
@@ -382,7 +427,6 @@
 
   /* Login/Registration Modal */
   .modal {
-    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -1230,6 +1274,11 @@
 </style>
 </head>
 <body>
+<!-- Auth Loading State - NEW -->
+<div class="auth-checking" id="authCheckingOverlay">
+  <div class="auth-spinner"></div>
+  <div class="auth-loading-text">Loading...</div>
+</div>
 
 <!-- Countdown Timer Overlay -->
 <div class="countdown-overlay" id="countdownOverlay">
@@ -2385,7 +2434,7 @@ async function loadLeaderboard() {
   });
 }
 
-// Login functionality with countdown
+// Login functionality with countdown - UPDATED WITH LOADING STATE
 document.addEventListener('DOMContentLoaded', async () => {
   const loginForm = document.getElementById('loginForm');
   const loginModal = document.getElementById('loginModal');
@@ -2398,32 +2447,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   const countdownUserInfo = document.getElementById('countdownUserInfo');
   const countdownUserDisplay = document.getElementById('countdownUserDisplay');
   const countdownBriefingBtn = document.getElementById('countdownBriefingBtn');
+  const authCheckingOverlay = document.getElementById('authCheckingOverlay');
   
   // Check challenge status from server
   const status = await checkChallengeStatus();
   
+  // Check for existing session
+  const existingSession = loadUserSession();
+  
+  // Hide loading overlay and show appropriate UI
+  if (authCheckingOverlay) {
+    authCheckingOverlay.style.display = 'none';
+  }
+  
   if (status.started) {
-    // Challenge already started, proceed normally
-    const existingSession = loadUserSession();
+    // Challenge already started
     if (existingSession) {
       // Restore user session
       currentUser = existingSession;
-      loginModal.classList.remove('active');
       userInfo.classList.add('active');
       userDisplay.textContent = `${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
       
-      //Initialize the main challenge immediately
+      // Initialize the main challenge immediately
       initializeGame();
+    } else {
+      // Show login modal
+      loginModal.style.display = 'block';
+      loginModal.classList.add('active');
     }
   } else {
     // Challenge hasn't started yet
-    const existingSession = loadUserSession();
     if (existingSession && localStorage.getItem(COUNTDOWN_STORAGE_KEY)) {
       // User already registered before start
       currentUser = existingSession;
-      loginModal.classList.remove('active');
       
       // Show countdown with user info
+      countdownOverlay.style.display = 'flex';
       countdownOverlay.classList.add('active');
       countdownUserInfo.style.display = 'block';
       countdownUserDisplay.textContent = `Registered as: ${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
@@ -2435,8 +2494,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Start lobby system
       lobbySystem = new LobbySystem();
       lobbySystem.start();
+    } else {
+      // Show login modal
+      loginModal.style.display = 'block';
+      loginModal.classList.add('active');
     }
-    // Otherwise, show login modal as normal
   }
   
   loginForm.addEventListener('submit', async (e) => {
@@ -2461,6 +2523,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       if (isPreRegistration) {
         // Show countdown overlay
+        countdownOverlay.style.display = 'flex';
         countdownOverlay.classList.add('active');
         countdownUserInfo.style.display = 'block';
         countdownUserDisplay.textContent = `Registered as: ${name}${team ? ` (${team})` : ''}`;
@@ -3141,4 +3204,3 @@ console.log(`
 </script>
 
 </body>
-</html>
