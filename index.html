@@ -25,6 +25,124 @@
     gap: 2rem;
   }
 
+  /* Team Selection Modal */
+  .team-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 30000;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .team-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .team-modal-content {
+    background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+    border: 2px solid #b0d351;
+    border-radius: 15px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    animation: slideDown 0.3s ease;
+  }
+
+  .team-modal-title {
+    color: #b0d351;
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .team-modal-subtitle {
+    color: #999;
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .team-option {
+    margin-bottom: 1rem;
+  }
+
+  .team-option-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+    border: 2px solid #444;
+    color: #eee;
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+  }
+
+  .team-option-btn:hover {
+    border-color: #b0d351;
+    background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+    transform: translateY(-2px);
+  }
+
+  .team-option-btn.selected {
+    border-color: #b0d351;
+    background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+  }
+
+  .team-option-title {
+    font-weight: 700;
+    color: #b0d351;
+    margin-bottom: 0.3rem;
+  }
+
+  .team-option-desc {
+    font-size: 0.9rem;
+    color: #ccc;
+  }
+
+  .team-input-container {
+    margin-top: 1.5rem;
+    display: none;
+  }
+
+  .team-input-container.active {
+    display: block;
+  }
+
+  .team-confirm-btn {
+    width: 100%;
+    background: linear-gradient(45deg, #b0d351, #a8cc4c);
+    border: none;
+    color: #1a1a1a;
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1.5rem;
+  }
+
+  .team-confirm-btn:hover {
+    background: linear-gradient(45deg, #a8cc4c, #9bc045);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(176, 211, 81, 0.4);
+  }
+
+  .team-confirm-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   /* Countdown Timer Styles */
   .countdown-overlay {
     position: fixed;
@@ -472,6 +590,14 @@
     text-align: center;
   }
 
+  .form-note {
+    color: #999;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    text-align: center;
+    font-style: italic;
+  }
+
   /* Progress Dashboard Button */
   .dashboard-button {
     position: fixed;
@@ -605,7 +731,7 @@
     font-size: 0.9rem;
     font-weight: 600;
     color: #b0d351;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(0,0,0,0..3);
     text-align: center;
     margin: 1.5rem auto 2rem auto;
     max-width: fit-content;
@@ -955,8 +1081,6 @@
     color: #1a1a1a;
   }
 
-    }
-  
   .task-badge.locked {
     background: #444;
     color: #666;
@@ -1231,6 +1355,37 @@
 </head>
 <body>
 
+<!-- Team Selection Modal -->
+<div class="team-modal" id="teamModal">
+  <div class="team-modal-content">
+    <h2 class="team-modal-title">Welcome back!</h2>
+    <p class="team-modal-subtitle">The challenge is starting. Would you like to join a team?</p>
+    
+    <div class="team-option">
+      <button class="team-option-btn" id="soloOption">
+        <div class="team-option-title">🎯 Continue Solo</div>
+        <div class="team-option-desc">I'll tackle this challenge on my own</div>
+      </button>
+    </div>
+    
+    <div class="team-option">
+      <button class="team-option-btn" id="teamOption">
+        <div class="team-option-title">👥 Join a Team</div>
+        <div class="team-option-desc">Work together with others</div>
+      </button>
+    </div>
+    
+    <div class="team-input-container" id="teamInputContainer">
+      <div class="form-group">
+        <label for="teamNameInput">Team Name</label>
+        <input type="text" id="teamNameInput" placeholder="Enter your team name">
+      </div>
+    </div>
+    
+    <button class="team-confirm-btn" id="teamConfirmBtn" disabled>Confirm Selection</button>
+  </div>
+</div>
+
 <!-- Countdown Timer Overlay -->
 <div class="countdown-overlay" id="countdownOverlay">
   <div class="countdown-container">
@@ -1296,11 +1451,14 @@
         <label for="userName">Your Name</label>
         <input type="text" id="userName" required autocomplete="name">
       </div>
-      <div class="form-group">
+      <div class="form-group" id="teamFieldContainer" style="display: none;">
         <label for="userTeam">Team Name (Optional)</label>
         <input type="text" id="userTeam" autocomplete="organization">
       </div>
       <button type="submit" class="form-submit">Register for Challenge</button>
+      <div class="form-note" id="formNote" style="display: none;">
+        Teams will be assigned when the challenge begins
+      </div>
       <div class="form-error" id="loginError"></div>
     </form>
   </div>
@@ -1697,15 +1855,28 @@ function updateCountdown() {
   document.getElementById('countSeconds').textContent = String(seconds).padStart(2, '0');
 }
 
-function startChallenge() {
+async function startChallenge() {
   challengeStarted = true;
   
   // Cleanup lobby
   if (lobbySystem) {
-    lobbySystem.cleanup();
+    await lobbySystem.cleanup();
   }
   
+  // Check if user needs to select a team
+  if (currentUser && (!currentUser.team || currentUser.team === 'Solo')) {
+    // Show team selection modal
+    document.getElementById('countdownOverlay').classList.remove('active');
+    document.getElementById('teamModal').classList.add('active');
+  } else {
+    // User already has a team, proceed normally
+    proceedWithChallengeStart();
+  }
+}
+
+function proceedWithChallengeStart() {
   // Show "STARTING NOW!" message
+  document.getElementById('countdownOverlay').classList.add('active');
   document.getElementById('countdownTimer').style.display = 'none';
   document.getElementById('countdownStarting').style.display = 'block';
   
@@ -1797,6 +1968,31 @@ async function saveUserToFirebase(name, team, isPreRegistration = false) {
   } catch (error) {
     console.error('Error saving user:', error);
     return null;
+  }
+}
+
+// Function to update user team
+async function updateUserTeam(userId, teamName) {
+  try {
+    await db.collection('users').doc(userId).update({
+      team: teamName,
+      teamUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Update local session
+    const session = loadUserSession();
+    if (session) {
+      session.team = teamName;
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    }
+    
+    // Update currentUser
+    currentUser.team = teamName;
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating team:', error);
+    return false;
   }
 }
 
@@ -2385,6 +2581,64 @@ async function loadLeaderboard() {
   });
 }
 
+// Team selection handlers
+function setupTeamSelection() {
+  const teamModal = document.getElementById('teamModal');
+  const soloOption = document.getElementById('soloOption');
+  const teamOption = document.getElementById('teamOption');
+  const teamInputContainer = document.getElementById('teamInputContainer');
+  const teamNameInput = document.getElementById('teamNameInput');
+  const teamConfirmBtn = document.getElementById('teamConfirmBtn');
+  
+  let selectedOption = null;
+  
+  soloOption.addEventListener('click', () => {
+    soloOption.classList.add('selected');
+    teamOption.classList.remove('selected');
+    teamInputContainer.classList.remove('active');
+    selectedOption = 'solo';
+    teamConfirmBtn.disabled = false;
+  });
+  
+  teamOption.addEventListener('click', () => {
+    teamOption.classList.add('selected');
+    soloOption.classList.remove('selected');
+    teamInputContainer.classList.add('active');
+    teamNameInput.focus();
+    selectedOption = 'team';
+    teamConfirmBtn.disabled = !teamNameInput.value.trim();
+  });
+  
+  teamNameInput.addEventListener('input', () => {
+    if (selectedOption === 'team') {
+      teamConfirmBtn.disabled = !teamNameInput.value.trim();
+    }
+  });
+  
+  teamConfirmBtn.addEventListener('click', async () => {
+    if (selectedOption === 'solo') {
+      // Keep as Solo
+      teamModal.classList.remove('active');
+      proceedWithChallengeStart();
+    } else if (selectedOption === 'team' && teamNameInput.value.trim()) {
+      // Update team
+      const teamName = sanitizeInput(teamNameInput.value);
+      const success = await updateUserTeam(currentUser.id, teamName);
+      
+      if (success) {
+        // Update display
+        const userDisplay = document.getElementById('userDisplay');
+        userDisplay.textContent = `${currentUser.name} (${teamName})`;
+        
+        teamModal.classList.remove('active');
+        proceedWithChallengeStart();
+      } else {
+        alert('Error updating team. Please try again.');
+      }
+    }
+  });
+}
+
 // Login functionality with countdown
 document.addEventListener('DOMContentLoaded', async () => {
   const loginForm = document.getElementById('loginForm');
@@ -2398,9 +2652,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const countdownUserInfo = document.getElementById('countdownUserInfo');
   const countdownUserDisplay = document.getElementById('countdownUserDisplay');
   const countdownBriefingBtn = document.getElementById('countdownBriefingBtn');
+  const teamFieldContainer = document.getElementById('teamFieldContainer');
+  const formNote = document.getElementById('formNote');
+  
+  // Setup team selection handlers
+  setupTeamSelection();
   
   // Check challenge status from server
   const status = await checkChallengeStatus();
+  
+  // Update form based on challenge status
+  if (status.started) {
+    // Challenge already started, show team field
+    teamFieldContainer.style.display = 'block';
+    formNote.style.display = 'none';
+  } else {
+    // Challenge hasn't started, hide team field and show note
+    teamFieldContainer.style.display = 'none';
+    formNote.style.display = 'block';
+  }
   
   if (status.started) {
     // Challenge already started, proceed normally
@@ -2426,7 +2696,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Show countdown with user info
       countdownOverlay.classList.add('active');
       countdownUserInfo.style.display = 'block';
-      countdownUserDisplay.textContent = `Registered as: ${existingSession.name}${existingSession.team ? ` (${existingSession.team})` : ''}`;
+      countdownUserDisplay.textContent = `Registered as: ${existingSession.name}`;
       
       // Start countdown
       updateCountdown();
@@ -2453,17 +2723,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Check current status again
     const currentStatus = await checkChallengeStatus();
     const isPreRegistration = !currentStatus.started;
-    const userId = await saveUserToFirebase(name, team, isPreRegistration);
+    
+    // Only pass team if challenge has started
+    const teamToSave = isPreRegistration ? 'Solo' : team;
+    const userId = await saveUserToFirebase(name, teamToSave, isPreRegistration);
     
     if (userId) {
-      currentUser = { id: userId, name, team };
+      currentUser = { id: userId, name, team: teamToSave };
       loginModal.classList.remove('active');
       
       if (isPreRegistration) {
         // Show countdown overlay
         countdownOverlay.classList.add('active');
         countdownUserInfo.style.display = 'block';
-        countdownUserDisplay.textContent = `Registered as: ${name}${team ? ` (${team})` : ''}`;
+        countdownUserDisplay.textContent = `Registered as: ${name}`;
         
         // Start countdown
         updateCountdown();
