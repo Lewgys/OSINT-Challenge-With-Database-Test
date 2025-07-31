@@ -1226,104 +1226,6 @@
     .countdown-label {
       font-size: 0.8rem;
     }
-   .team-modal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.9);
-  z-index: 30000;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.3s ease;
-}
-
-.team-modal.active {
-  display: flex;
-}
-
-.team-modal-content {
-  background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
-  border: 2px solid #b0d351;
-  border-radius: 15px;
-  padding: 2rem;
-  max-width: 400px;
-  width: 90%;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  animation: slideDown 0.3s ease;
-}
-
-.team-modal-title {
-  color: #b0d351;
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
-.team-modal-subtitle {
-  color: #999;
-  font-size: 0.95rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
-  line-height: 1.5;
-}
-
-.team-options {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.team-option {
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid #444;
-  border-radius: 10px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.team-option:hover {
-  border-color: #b0d351;
-  background: rgba(176, 211, 81, 0.1);
-}
-
-.team-option.selected {
-  border-color: #b0d351;
-  background: rgba(176, 211, 81, 0.2);
-}
-
-.team-option-title {
-  color: #b0d351;
-  font-weight: 700;
-  margin-bottom: 0.3rem;
-}
-
-.team-option-description {
-  color: #999;
-  font-size: 0.85rem;
-}
-
-.team-input-section {
-  display: none;
-  margin-top: 1rem;
-  animation: fadeIn 0.3s ease;
-}
-
-.team-input-section.active {
-  display: block;
-}
-
-.countdown-ready {
-  text-align: center;
-  color: #b0d351;
-  font-size: 1.1rem;
-  margin-top: 1.5rem;
-  font-weight: 600;
-}
   }
 </style>
 </head>
@@ -1371,36 +1273,7 @@
     <span id="lobbyCount">0</span> participants waiting
   </div>
 </div>
-<div class="team-modal" id="teamModal">
-  <div class="team-modal-content">
-    <h2 class="team-modal-title">Welcome Back!</h2>
-    <p class="team-modal-subtitle">The challenge is about to begin! Would you like to join a team or compete solo?</p>
-    
-    <div class="team-options">
-      <div class="team-option" id="teamOption" data-option="team">
-        <div class="team-option-title">👥 Join a Team</div>
-        <div class="team-option-description">Collaborate with others and combine your OSINT skills</div>
-      </div>
-      
-      <div class="team-option" id="soloOption" data-option="solo">
-        <div class="team-option-title">🏃 Go Solo</div>
-        <div class="team-option-description">Take on the challenge by yourself</div>
-      </div>
-    </div>
-    
-    <div class="team-input-section" id="teamInputSection">
-      <div class="form-group">
-        <label for="challengeTeamName">Team Name</label>
-        <input type="text" id="challengeTeamName" placeholder="Enter your team name">
-      </div>
-    </div>
-    
-    <button type="button" class="form-submit" id="confirmTeamBtn">Continue to Challenge</button>
-    
-    <div class="form-error" id="teamError"></div>
-  </div>
-</div>
- 
+
 <!-- Global Achievements Panel -->
 <div class="achievements-panel">
   <div class="achievements-title">🏆 Live Achievements</div>
@@ -1530,19 +1403,12 @@ const CONFIG = {
 // Session storage key for user persistence
 const SESSION_STORAGE_KEY = 'osint_challenge_user_session';
 const COUNTDOWN_STORAGE_KEY = 'osint_challenge_registered_before_start';
-const REGISTRATION_MODES = {
-  PRE_CHALLENGE: 'pre_challenge',
-  CHALLENGE_STARTING: 'challenge_starting',
-  CHALLENGE_ACTIVE: 'challenge_active'
-};
 
 // Current user state
 let currentUser = null;
 let countdownInterval = null;
 let challengeStarted = false;
 let challengeStartTime = null;
-let isWaitingForTeamDecision = false;
-let challengeStartCountdown = null;
 
 // Global achievements system
 const ACHIEVEMENTS = {
@@ -1667,11 +1533,10 @@ class LobbySystem {
       bubble.classList.add('me');
     }
     
-    // Set content - handle null teams
-    const teamDisplay = data.team && data.team !== 'Solo' ? data.team : null;
+    // Set content
     bubble.innerHTML = `
       ${data.name}
-      ${teamDisplay ? `<div class="team">${teamDisplay}</div>` : ''}
+      ${data.team !== 'Solo' ? `<div class="team">${data.team}</div>` : ''}
     `;
     
     // Generate random position
@@ -1786,7 +1651,7 @@ async function checkChallengeStatus() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'checkStatus' })
     });
-  
+    
     const data = await response.json();
     
     if (data.started) {
@@ -1806,219 +1671,7 @@ async function checkChallengeStatus() {
     return { started: false };
   }
 }
-function getRegistrationMode(status) {
-  if (!status) return REGISTRATION_MODES.PRE_CHALLENGE;
-  
-  if (status.started) {
-    return REGISTRATION_MODES.CHALLENGE_ACTIVE;
-  }
-  
-  // Check if we're within 5 minutes of start time
-  if (status.startsAt) {
-    const timeUntilStart = new Date(status.startsAt) - new Date();
-    const fiveMinutes = 5 * 60 * 1000;
-    
-    if (timeUntilStart <= fiveMinutes && timeUntilStart > 0) {
-      return REGISTRATION_MODES.CHALLENGE_STARTING;
-    }
-  }
-  
-  return REGISTRATION_MODES.PRE_CHALLENGE;
-}
 
-// Modified saveUserToFirebase to handle pre-registration without team
-async function saveUserToFirebase(name, team, isPreRegistration = false) {
-  try {
-    const userRef = await db.collection('users').add({
-      name: name,
-      team: team || null, // Save null for pre-registered users without teams
-      startTime: firebase.firestore.FieldValue.serverTimestamp(),
-      lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-      preRegistered: isPreRegistration,
-      needsTeamDecision: isPreRegistration // Flag to track users who need team decision
-    });
-    const userId = userRef.id;
-    
-    const userSession = {
-      id: userId,
-      name: name,
-      team: team || null,
-      timestamp: Date.now(),
-      sessionId: generateSessionId(),
-      needsTeamDecision: isPreRegistration
-    };
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(userSession));
-    
-    if (isPreRegistration) {
-      localStorage.setItem(COUNTDOWN_STORAGE_KEY, 'true');
-    }
-    
-    return userId;
-  } catch (error) {
-    console.error('Error saving user:', error);
-    return null;
-  }
-}
-
-// Function to update user's team after they make a decision
-async function updateUserTeam(userId, teamName) {
-  try {
-    await db.collection('users').doc(userId).update({
-      team: teamName || 'Solo',
-      needsTeamDecision: false,
-      teamDecisionTime: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    
-    // Update local session
-    const session = loadUserSession();
-    if (session) {
-      session.team = teamName || 'Solo';
-      session.needsTeamDecision = false;
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-    }
-    
-    // Update current user
-    if (currentUser) {
-      currentUser.team = teamName || 'Solo';
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error updating team:', error);
-    return false;
-  }
-}
-
-// Modified startChallenge function
-function startChallenge() {
-  challengeStarted = true;
-  
-  // Check if current user needs team decision
-  if (currentUser && loadUserSession()?.needsTeamDecision) {
-    // Show team decision modal
-    showTeamDecisionModal();
-    return;
-  }
-  
-  // Continue with normal start flow
-  proceedWithChallengeStart();
-}
-
-// New function to handle the actual challenge start
-function proceedWithChallengeStart() {
-  // Cleanup lobby
-  if (lobbySystem) {
-    lobbySystem.cleanup();
-  }
-  
-  // Show "STARTING NOW!" message
-  document.getElementById('countdownTimer').style.display = 'none';
-  document.getElementById('countdownStarting').style.display = 'block';
-  
-  // Wait 3 seconds then hide countdown overlay
-  setTimeout(() => {
-    document.getElementById('countdownOverlay').classList.remove('active');
-    
-    // Initialize the game if user is already registered
-    if (currentUser) {
-      initializeGame();
-    }
-  }, 3000);
-}
-
-// Function to show team decision modal
-function showTeamDecisionModal() {
-  const teamModal = document.getElementById('teamModal');
-  const countdown = document.getElementById('countdownOverlay');
-  
-  // Hide countdown temporarily
-  countdown.style.display = 'none';
-  
-  // Show team modal
-  teamModal.classList.add('active');
-  isWaitingForTeamDecision = true;
-}
-
-// Setup team decision modal handlers
-function setupTeamModal() {
-  const teamModal = document.getElementById('teamModal');
-  const teamOption = document.getElementById('teamOption');
-  const soloOption = document.getElementById('soloOption');
-  const teamInputSection = document.getElementById('teamInputSection');
-  const confirmBtn = document.getElementById('confirmTeamBtn');
-  const teamNameInput = document.getElementById('challengeTeamName');
-  const teamError = document.getElementById('teamError');
-  
-  let selectedOption = null;
-  
-  // Option selection handlers
-  [teamOption, soloOption].forEach(option => {
-    option.addEventListener('click', () => {
-      // Remove previous selection
-      document.querySelectorAll('.team-option').forEach(opt => {
-        opt.classList.remove('selected');
-      });
-      
-      // Add selection
-      option.classList.add('selected');
-      selectedOption = option.dataset.option;
-      
-      // Show/hide team input
-      if (selectedOption === 'team') {
-        teamInputSection.classList.add('active');
-        teamNameInput.focus();
-      } else {
-        teamInputSection.classList.remove('active');
-        teamNameInput.value = '';
-      }
-      
-      // Clear error
-      teamError.textContent = '';
-    });
-  });
-  
-  // Confirm button handler
-  confirmBtn.addEventListener('click', async () => {
-    if (!selectedOption) {
-      teamError.textContent = 'Please select an option';
-      return;
-    }
-    
-    let teamName = null;
-    if (selectedOption === 'team') {
-      teamName = teamNameInput.value.trim();
-      if (!teamName) {
-        teamError.textContent = 'Please enter a team name';
-        return;
-      }
-    }
-    
-    // Disable button during update
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Updating...';
-    
-    // Update user's team
-    const updated = await updateUserTeam(currentUser.id, teamName);
-    
-    if (updated) {
-      // Update lobby if still active
-      if (lobbySystem) {
-        await lobbySystem.addCurrentUserToLobby();
-      }
-      
-      // Hide modal
-      teamModal.classList.remove('active');
-      isWaitingForTeamDecision = false;
-      
-      // Continue with challenge start
-      proceedWithChallengeStart();
-    } else {
-      teamError.textContent = 'Error updating team. Please try again.';
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = 'Continue to Challenge';
-    }
-  });
- 
 // Countdown Timer Functions
 function updateCountdown() {
   if (!challengeStartTime) return;
@@ -2112,29 +1765,30 @@ function clearUserSession() {
   currentUser = null;
 }
 
-// Modified saveUserToFirebase to handle pre-registration without team
+// Modified saveUserToFirebase to handle pre-registration
 async function saveUserToFirebase(name, team, isPreRegistration = false) {
   try {
+    // Always create a new user entry (no checking for duplicates)
     const userRef = await db.collection('users').add({
       name: name,
-      team: team || null, // Save null for pre-registered users without teams
+      team: team || 'Solo',
       startTime: firebase.firestore.FieldValue.serverTimestamp(),
       lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-      preRegistered: isPreRegistration,
-      needsTeamDecision: isPreRegistration // Flag to track users who need team decision
+      preRegistered: isPreRegistration
     });
     const userId = userRef.id;
     
+    // Save session to localStorage with unique session ID
     const userSession = {
       id: userId,
       name: name,
-      team: team || null,
+      team: team || 'Solo',
       timestamp: Date.now(),
-      sessionId: generateSessionId(),
-      needsTeamDecision: isPreRegistration
+      sessionId: generateSessionId() // Add unique session identifier
     };
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(userSession));
     
+    // If pre-registering, also save that info
     if (isPreRegistration) {
       localStorage.setItem(COUNTDOWN_STORAGE_KEY, 'true');
     }
@@ -2747,9 +2401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Check challenge status from server
   const status = await checkChallengeStatus();
-  // Setup team modal
-  setupTeamModal();
- 
+  
   if (status.started) {
     // Challenge already started, proceed normally
     const existingSession = loadUserSession();
@@ -2787,36 +2439,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Otherwise, show login modal as normal
   }
   
-  // Modified login form handler
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const name = document.getElementById('userName').value.trim();
-    const teamInput = document.getElementById('userTeam');
+    const team = document.getElementById('userTeam').value.trim();
     
     if (!name) {
       document.getElementById('loginError').textContent = 'Please enter your name';
       return;
     }
     
-    // Check current status and registration mode
+    // Check current status again
     const currentStatus = await checkChallengeStatus();
-    const registrationMode = getRegistrationMode(currentStatus);
-    
-    let team = null;
-    let isPreRegistration = false;
-    
-    if (registrationMode === REGISTRATION_MODES.PRE_CHALLENGE) {
-      // Pre-challenge: disable team field, only collect name
-      isPreRegistration = true;
-      team = null;
-    } else if (registrationMode === REGISTRATION_MODES.CHALLENGE_STARTING || 
-               registrationMode === REGISTRATION_MODES.CHALLENGE_ACTIVE) {
-      // Challenge active: collect team if provided
-      team = teamInput.value.trim() || 'Solo';
-      isPreRegistration = false;
-    }
-    
+    const isPreRegistration = !currentStatus.started;
     const userId = await saveUserToFirebase(name, team, isPreRegistration);
     
     if (userId) {
@@ -2824,10 +2460,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       loginModal.classList.remove('active');
       
       if (isPreRegistration) {
-        // Show countdown overlay for pre-registered users
+        // Show countdown overlay
         countdownOverlay.classList.add('active');
         countdownUserInfo.style.display = 'block';
-        countdownUserDisplay.textContent = `Registered as: ${name} (Team selection at start)`;
+        countdownUserDisplay.textContent = `Registered as: ${name}${team ? ` (${team})` : ''}`;
         
         // Start countdown
         updateCountdown();
@@ -2841,28 +2477,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         userInfo.classList.add('active');
         userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
         
+        //Initialize the main challenge
         initializeGame();
       }
     } else {
       document.getElementById('loginError').textContent = 'Error starting challenge. Please try again.';
     }
-   // Update team field visibility based on challenge status
-  const updateRegistrationForm = async () => {
-    const status = await checkChallengeStatus();
-    const mode = getRegistrationMode(status);
-    const teamField = document.getElementById('userTeam').parentElement;
-    
-    if (mode === REGISTRATION_MODES.PRE_CHALLENGE) {
-      // Hide team field during pre-registration
-      teamField.style.display = 'none';
-    } else {
-      // Show team field when challenge is active
-      teamField.style.display = 'block';
-    }
-  };
-  
-  // Initial form update
-  updateRegistrationForm();
   });
   
   // Countdown briefing button - reuse existing briefing functionality
