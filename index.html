@@ -2604,10 +2604,7 @@ function updateLeaderboardDisplay() {
     if (b.completedTasks !== a.completedTasks) {
       return b.completedTasks - a.completedTasks;
     }
-    if (a.totalHints !== b.totalHints) {
-      return a.totalHints - b.totalHints;
-    }
-    return a.startTime - b.startTime;
+    return a.totalHints - b.totalHints;
   });
 }
   // Update DOM
