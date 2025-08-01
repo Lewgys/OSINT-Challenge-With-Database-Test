@@ -262,6 +262,59 @@
     50% { transform: scale(1.1); opacity: 0.8; }
   }
 
+  /* Countdown Briefing Modal Styles */
+  .countdown-briefing-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 20001;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    overflow-y: auto;
+  }
+
+  .countdown-briefing-modal.active {
+    display: flex;
+  }
+
+  .countdown-briefing-content {
+    background: linear-gradient(135deg, #1e1e1e 0%, #2a2a2a 100%);
+    border: 2px solid #b0d351;
+    border-radius: 15px;
+    padding: 2rem;
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    animation: slideDown 0.3s ease-out;
+  }
+
+  .countdown-briefing-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: color 0.3s ease;
+    line-height: 1;
+  }
+
+  .countdown-briefing-close:hover {
+    color: #b0d351;
+  }
+
   /* Lobby System Styles */
   .lobby-participants {
     position: absolute;
@@ -1308,6 +1361,11 @@
       font-size: 0.8rem;
       bottom: 1rem;
     }
+    
+    .countdown-briefing-content {
+      padding: 1.5rem;
+      margin: 1rem;
+    }
   }
   
   @media (max-width: 480px) {
@@ -1426,6 +1484,29 @@
   <div class="lobby-participants" id="lobbyParticipants"></div>
   <div class="lobby-counter" id="lobbyCounter" style="display: none;">
     <span id="lobbyCount">0</span> participants waiting
+  </div>
+</div>
+
+<!-- Separate Briefing Modal for Countdown/Lobby -->
+<div class="countdown-briefing-modal" id="countdownBriefingModal">
+  <div class="countdown-briefing-content">
+    <button class="countdown-briefing-close" id="countdownBriefingClose">✕</button>
+    <div class="briefing-title">Briefing</div>
+    <div class="briefing-content">
+      <p>Welcome to Lewis' OSINT Challenge. This challenge is supposed to test you on a variety of different OSINT techniques. Within your team, it is highly likely that if you smash your heads together, you will complete all 5 Tasks at hand.</p>
+      
+      <p>The challenge at hand will have you investigating a malicious threat actor that has compromised an employee's system and left a note. It is your job to gather as much information as possible on the individual and answer the questions accordingly. I highly recommend that you dig deeper than you think throughout this.</p>
+      
+      <div class="briefing-note">
+        <strong>NOTE:</strong> All answers can be obtained via passive OSINT techniques, DO NOT attempt any active techniques such as reaching out to the account holder and attempting brute-force attacks.
+
+        Just so you know, we want to encourage real-world OSINT skills, not source-diving and OWASP top 10, so don't test this page...
+      </div>
+      
+      <p>If you have any questions, please feel free to shoot any of the event organisers a message...Good Luck</p>
+      
+      <div class="briefing-signature">- Lewis G</div>
+    </div>
   </div>
 </div>
 
@@ -2528,7 +2609,7 @@ function updateLeaderboardDisplay() {
     }
     return a.startTime - b.startTime;
   });
-  
+}
   // Update DOM
   const leaderboardContent = document.getElementById('leaderboardContent');
   const currentUserHasUnlockedTask6 = currentUser && gameInstance && gameInstance.completedTasks['task5'];
@@ -2758,15 +2839,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
-  // Countdown briefing button - reuse existing briefing functionality
+  // Countdown briefing button - use separate modal
   countdownBriefingBtn.addEventListener('click', () => {
-    const briefingDropdown = document.getElementById('briefingDropdown');
-    briefingDropdown.style.position = 'fixed';
-    briefingDropdown.style.top = '50%';
-    briefingDropdown.style.left = '50%';
-    briefingDropdown.style.transform = 'translate(-50%, -50%)';
-    briefingDropdown.style.display = 'block';
-    briefingDropdown.style.zIndex = '20001';
+    const countdownBriefingModal = document.getElementById('countdownBriefingModal');
+    countdownBriefingModal.classList.add('active');
+  });
+
+  // Add event listener for closing the countdown briefing modal
+  document.getElementById('countdownBriefingClose').addEventListener('click', () => {
+    document.getElementById('countdownBriefingModal').classList.remove('active');
+  });
+
+  // Close countdown briefing on click outside
+  document.getElementById('countdownBriefingModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) {
+      e.currentTarget.classList.remove('active');
+    }
   });
   
   // UPDATED Dashboard functionality with real-time listener
@@ -2827,6 +2915,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       closeBriefing();
       if (dashboardModal.classList.contains('active')) {
         dashboardModal.classList.remove('active');
+      }
+      // Also close countdown briefing modal
+      const countdownBriefingModal = document.getElementById('countdownBriefingModal');
+      if (countdownBriefingModal.classList.contains('active')) {
+        countdownBriefingModal.classList.remove('active');
       }
     }
   });
