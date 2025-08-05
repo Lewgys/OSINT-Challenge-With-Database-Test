@@ -1410,44 +1410,11 @@ body {
     .countdown-label {
       font-size: 0.8rem;
     }
-    #matrix-rain {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -1;
-  opacity: 0.35; /* 35% opacity as requested */
-  pointer-events: none;
-}
-
-/* Gradient overlay for depth */
-.matrix-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(ellipse at center, 
-              transparent 0%, 
-              rgba(12, 12, 12, 0.2) 60%, 
-              rgba(12, 12, 12, 0.5) 100%);
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* Ensure all your existing content stays above the matrix effect */
-body > *:not(#matrix-rain):not(.matrix-overlay) {
-  position: relative;
-  z-index: 1;
-}
-}
+  }
 </style>
 </head>
 <body>
 
-<canvas id="matrix-rain"></canvas>
-<div class="matrix-overlay"></div>
 <!-- Team Selection Modal -->
 <div class="team-modal" id="teamModal">
   <div class="team-modal-content">
@@ -3766,119 +3733,6 @@ console.log(`
   ║   Happy investigating! 🔍         ║
   ╚═══════════════════════════════════╝
 `);
-
-// Binary Matrix Rain Effect
-(function initBinaryMatrixRain() {
-  const canvas = document.getElementById('matrix-rain');
-  if (!canvas) return;
-  
-  const ctx = canvas.getContext('2d');
-  
-  // Configuration
-  const fontSize = 16;
-  const color = '#b0d351'; // Your theme green
-  const fadeSpeed = 0.04; // How quickly characters fade
-  const dropSpeed = 0.6; // How fast characters fall
-  const density = 0.97; // Higher = fewer drops (0.97 = 3% chance)
-  
-  let columns, drops;
-  
-  function initCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    
-    columns = Math.floor(canvas.width / fontSize);
-    drops = Array(columns).fill(0).map(() => 
-      Math.random() * -50 // Start drops at random heights above screen
-    );
-  }
-  
-  function draw() {
-    // Create trailing effect with semi-transparent black
-    ctx.fillStyle = `rgba(12, 12, 12, ${fadeSpeed})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Set text properties
-    ctx.fillStyle = color;
-    ctx.font = `${fontSize}px monospace`;
-    ctx.textAlign = 'center';
-    
-    // Draw binary characters
-    for (let i = 0; i < drops.length; i++) {
-      // Only draw visible drops
-      if (drops[i] > 0) {
-        // Random binary character (0 or 1)
-        const binary = Math.random() > 0.5 ? '1' : '0';
-        
-        // Calculate position
-        const x = i * fontSize + fontSize / 2;
-        const y = drops[i] * fontSize;
-        
-        // Add slight brightness variation for depth
-        const brightness = 0.5 + Math.random() * 0.5;
-        ctx.globalAlpha = brightness;
-        
-        // Draw the character
-        ctx.fillText(binary, x, y);
-      }
-      
-      // Move drop down
-      if (drops[i] * fontSize > canvas.height && Math.random() > density) {
-        drops[i] = -1; // Reset to top
-      }
-      
-      drops[i] += dropSpeed;
-    }
-    
-    ctx.globalAlpha = 1; // Reset alpha
-  }
-  
-  // Initialize
-  initCanvas();
-  
-  // Animation loop
-  let animationId;
-  function animate() {
-    draw();
-    animationId = requestAnimationFrame(animate);
-  }
-  animate();
-  
-  // Handle window resize
-  window.addEventListener('resize', () => {
-    initCanvas();
-  });
-  
-  // Performance: Pause when tab is not visible
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      cancelAnimationFrame(animationId);
-    } else {
-      animate();
-    }
-  });
-  
-  // Optional: Allow users to toggle the effect with a keyboard shortcut
-  let matrixEnabled = true;
-  document.addEventListener('keydown', (e) => {
-    // Press Ctrl/Cmd + M to toggle matrix effect
-    if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
-      e.preventDefault();
-      matrixEnabled = !matrixEnabled;
-      canvas.style.display = matrixEnabled ? 'block' : 'none';
-      
-      // Optional: Save preference
-      localStorage.setItem('matrixRainEnabled', matrixEnabled);
-    }
-  });
-  
-  // Load saved preference
-  const savedPref = localStorage.getItem('matrixRainEnabled');
-  if (savedPref === 'false') {
-    matrixEnabled = false;
-    canvas.style.display = 'none';
-  }
-})();
 
 </script>
 
