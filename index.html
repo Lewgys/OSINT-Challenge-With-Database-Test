@@ -1410,6 +1410,41 @@ body {
     .countdown-label {
       font-size: 0.8rem;
     }
+      /* Loading state for submit button */
+  .form-submit.loading {
+    position: relative;
+    color: transparent;
+    pointer-events: none;
+    cursor: not-allowed;
+    opacity: 0.8;
+  }
+
+  .form-submit.loading::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin-left: -10px;
+    margin-top: -10px;
+    border: 2px solid #1a1a1a;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spinner 0.6s linear infinite;
+  }
+
+  @keyframes spinner {
+    to { transform: rotate(360deg); }
+  }
+
+  .form-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+    
   }
 </style>
 </head>
@@ -2877,27 +2912,48 @@ function setupTeamSelection() {
   
   observer.observe(teamModal, { attributes: true, attributeFilter: ['class'] });
   
-  teamConfirmBtn.addEventListener('click', async () => {
-    const teamName = sanitizeInput(teamNameInput.value);
-    
-    if (!teamName) {
-      alert('Please enter a team name');
-      return;
-    }
-    
-    const success = await updateUserTeam(currentUser.id, teamName);
-    
-    if (success) {
-      // Update display
-      const userDisplay = document.getElementById('userDisplay');
-      userDisplay.textContent = `${currentUser.name} (${teamName})`;
-      
-      teamModal.classList.remove('active');
-      proceedWithChallengeStart();
-    } else {
-      alert('Error updating team. Please try again.');
-    }
-  });
+	teamConfirmBtn.addEventListener('click', async () => {
+	  // Prevent double-clicks
+	  if (teamConfirmBtn.disabled) {
+	    return;
+	  }
+	  
+	  const teamName = sanitizeInput(teamNameInput.value);
+	  
+	  if (!teamName) {
+	    alert('Please enter a team name');
+	    return;
+	  }
+	  
+	  // Disable button and show loading state
+	  teamConfirmBtn.disabled = true;
+	  const originalText = teamConfirmBtn.textContent;
+	  teamConfirmBtn.textContent = 'Updating...';
+	  
+	  try {
+	    const success = await updateUserTeam(currentUser.id, teamName);
+	    
+	    if (success) {
+	      // Update display
+	      const userDisplay = document.getElementById('userDisplay');
+	      userDisplay.textContent = `${currentUser.name} (${teamName})`;
+	      
+	      teamModal.classList.remove('active');
+	      proceedWithChallengeStart();
+	    } else {
+	      alert('Error updating team. Please try again.');
+	      // Re-enable on error
+	      teamConfirmBtn.disabled = false;
+	      teamConfirmBtn.textContent = originalText;
+	    }
+	  } catch (error) {
+	    console.error('Team update error:', error);
+	    alert('An error occurred. Please try again.');
+	    // Re-enable on error
+	    teamConfirmBtn.disabled = false;
+	    teamConfirmBtn.textContent = originalText;
+	  }
+	});
 }
 
 // Login functionality with countdown
@@ -2970,17 +3026,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Otherwise, show login modal as normal
   }
   
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const name = document.getElementById('userName').value.trim();
-    const team = document.getElementById('userTeam').value.trim();
-    
-    if (!name) {
-      document.getElementById('loginError').textContent = 'Please enter your name';
-      return;
-    }
-    
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const submitButton = loginForm.querySelector('.form-submit');
+  const loginError = document.getElementById('loginError');
+  
+  // Prevent double-submission
+  if (submitButton.disabled) {
+    return;
+  }
+  
+  const name = document.getElementById('userName').value.trim();
+  const team = document.getElementById('userTeam').value.trim();
+  
+  if (!name) {
+    loginError.textContent = 'Please enter your name';
+    return;
+  }
+  
+  // Disable button and show loading state
+  submitButton.disabled = true;
+  submitButton.classList.add('loading');
+  const originalButtonText = submitButton.textContent;
+  submitButton.textContent = ''; // Clear text for loading spinner
+  
+  try {
     // Check current status again
     const currentStatus = await checkChallengeStatus();
     const isPreRegistration = !currentStatus.started;
@@ -3011,13 +3082,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         userInfo.classList.add('active');
         userDisplay.textContent = `${name}${team ? ` (${team})` : ''}`;
         
-        //Initialize the main challenge
+        // Initialize the main challenge
         initializeGame();
       }
+      
+      // Keep button disabled after successful registration (modal will be hidden anyway)
+      // This prevents any edge case where the modal might still be visible
     } else {
-      document.getElementById('loginError').textContent = 'Error starting challenge. Please try again.';
+      // Registration failed - re-enable button
+      loginError.textContent = 'Error starting challenge. Please try again.';
+      submitButton.disabled = false;
+      submitButton.classList.remove('loading');
+      submitButton.textContent = originalButtonText;
     }
-  });
+  } catch (error) {
+    console.error('Registration error:', error);
+    // Re-enable button on error
+    loginError.textContent = 'An error occurred. Please try again.';
+    submitButton.disabled = false;
+    submitButton.classList.remove('loading');
+    submitButton.textContent = originalButtonText;
+  }
+});
   
   // Countdown briefing button - use separate modal
   countdownBriefingBtn.addEventListener('click', () => {
