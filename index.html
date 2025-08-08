@@ -329,22 +329,21 @@ body {
     overflow: hidden;
   }
 
-  .participant-bubble {
-    position: absolute;
-    background: rgba(176, 211, 81, 0.1);
-    border: 1px solid rgba(176, 211, 81, 0.3);
-    border-radius: 20px;
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-    color: #b0d351;
-    white-space: nowrap;
-    animation: float 20s infinite ease-in-out;
-    transition: all 0.5s ease;
-    pointer-events: auto;
-    cursor: default;
-    z-index: 5;
-  }
-
+ .participant-bubble {
+   position: absolute;
+   background: rgba(176, 211, 81, 0.1);
+   border: 1px solid rgba(176, 211, 81, 0.3);
+   border-radius: 18px;  /* Changed from 20px */
+   padding: 0.45rem 0.9rem;  /* Changed from 0.5rem 1rem */
+   font-size: 0.77rem;  /* Changed from 0.85rem */
+   color: #b0d351;
+   white-space: nowrap;
+   animation: float 20s infinite ease-in-out;
+   transition: all 0.5s ease;
+   pointer-events: auto;
+   cursor: default;
+   z-index: 5;
+ }
   .participant-bubble:hover {
     background: rgba(176, 211, 81, 0.2);
     border-color: #b0d351;
@@ -359,11 +358,11 @@ body {
     box-shadow: 0 0 20px rgba(176, 211, 81, 0.4);
   }
 
-  .participant-bubble .team {
-    font-size: 0.75rem;
-    color: #999;
-    margin-top: 0.2rem;
-  }
+ .participant-bubble .team {
+   font-size: 0.68rem;  /* Changed from 0.75rem */
+   color: #999;
+   margin-top: 0.2rem;
+ }
 
   .participant-bubble.new {
     animation: bubbleAppear 0.5s ease-out, float 20s infinite ease-in-out;
@@ -1721,14 +1720,15 @@ let lobbySystem = null;
 
 class LobbySystem {
   constructor() {
-    this.container = document.getElementById('lobbyParticipants');
-    this.counter = document.getElementById('lobbyCounter');
-    this.countEl = document.getElementById('lobbyCount');
-    this.participants = new Map();
-    this.listener = null;
-    this.positions = new Set();
-    this.gridSize = 100; // Grid size for positioning
-  }
+  this.container = document.getElementById('lobbyParticipants');
+  this.counter = document.getElementById('lobbyCounter');
+  this.countEl = document.getElementById('lobbyCount');
+  this.participants = new Map();
+  this.listener = null;
+  this.positions = new Map();  // Changed from Set to Map
+  this.COLLISION_DISTANCE = 4;  // NEW
+  this.MAX_POSITION_ATTEMPTS = 50;  // NEW
+}
 
   start() {
     if (!currentUser) return;
@@ -1787,9 +1787,59 @@ class LobbySystem {
       ${data.name}
       ${data.team !== 'Solo' ? `<div class="team">${data.team}</div>` : ''}
     `;
-    
-    // Generate random position
+  findOptimalPosition(userId) {
+    let attempts = 0;
+    let bestPosition = null;
+    let bestMinDistance = 0;
+  
+  while (attempts < this.MAX_POSITION_ATTEMPTS) {
     const position = this.generateRandomPosition();
+    
+    if (!this.hasCollision(position)) {
+      return position;
+    }
+    
+    const minDist = this.getMinimumDistance(position);
+    if (minDist > bestMinDistance) {
+      bestMinDistance = minDist;
+      bestPosition = position;
+    }
+    
+    attempts++;
+  }
+  
+  return bestPosition || this.generateRandomPosition();
+}
+
+hasCollision(position) {
+  for (const [otherId, otherPos] of this.positions) {
+    const distance = Math.sqrt(
+      Math.pow(position.x - otherPos.x, 2) + 
+      Math.pow(position.y - otherPos.y, 2)
+    );
+    
+    if (distance < this.COLLISION_DISTANCE) {
+      return true;
+    }
+  }
+  return false;
+}
+
+getMinimumDistance(position) {
+  let minDist = Infinity;
+  
+  for (const [otherId, otherPos] of this.positions) {
+    const distance = Math.sqrt(
+      Math.pow(position.x - otherPos.x, 2) + 
+      Math.pow(position.y - otherPos.y, 2)
+    );
+    minDist = Math.min(minDist, distance);
+  }
+  
+  return minDist === Infinity ? 100 : minDist;
+}
+    // Generate random position
+    const position = this.findOptimalPosition(userId);
     bubble.style.left = `${position.x}%`;
     bubble.style.top = `${position.y}%`;
     
@@ -1800,7 +1850,8 @@ class LobbySystem {
     this.createJoinRipple(position.x, position.y);
     
     this.container.appendChild(bubble);
-    this.participants.set(userId, { element: bubble, data: data });
+    this.participants.set(userId, { element: bubble, data: data, position: position });
+    this.positions.set(userId, position);  // NEW LINE
     
     // Remove 'new' class after animation
     setTimeout(() => bubble.classList.remove('new'), 500);
@@ -1825,38 +1876,37 @@ class LobbySystem {
       setTimeout(() => {
         participant.element.remove();
         this.participants.delete(userId);
+        this.positions.delete(userId);
       }, 500);
     }
   }
 
   generateRandomPosition() {
-    // Generate positions that avoid center where countdown is
-    let x, y;
-    const maxAttempts = 50;
-    let attempts = 0;
-    
-    do {
-      x = Math.random() * 90 + 5; // 5-95%
-      y = Math.random() * 85 + 5; // 5-90%
-      attempts++;
-      
-      // Avoid center area (where countdown is)
-      const centerX = 50;
-      const centerY = 50;
-      const minDistance = 25;
-      
-      const distance = Math.sqrt(
-        Math.pow(x - centerX, 2) + 
-        Math.pow(y - centerY, 2)
-      );
-      
-      if (distance > minDistance || attempts > maxAttempts) {
-        break;
-      }
-    } while (true);
-    
-    return { x, y };
-  }
+   const centerX = 50;
+   const centerY = 50;
+   const minDistanceFromCenter = 20;  // Reduced from 25-30
+   
+   let x, y, distance;
+   const maxAttempts = 50;
+   let attempts = 0;
+   
+   do {
+     x = Math.random() * 94 + 3; // 3-97%
+     y = Math.random() * 94 + 3; // 3-97%
+     
+     distance = Math.sqrt(
+       Math.pow(x - centerX, 2) + 
+       Math.pow(y - centerY, 2)
+     );
+     
+     attempts++;
+     if (attempts > maxAttempts) {
+       break;
+     }
+   } while (distance < minDistanceFromCenter);
+   
+   return { x, y };
+ }
 
   updateCounter() {
     const count = this.participants.size;
@@ -1887,6 +1937,7 @@ class LobbySystem {
     
     // Clear participants
     this.participants.clear();
+    this.positions.clear();
     this.container.innerHTML = '';
     this.counter.style.display = 'none';
   }
