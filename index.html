@@ -1787,57 +1787,77 @@ class LobbySystem {
       ${data.name}
       ${data.team !== 'Solo' ? `<div class="team">${data.team}</div>` : ''}
     `;
+    
+    // Generate position with collision detection
+    const position = this.findOptimalPosition(userId);
+    bubble.style.left = `${position.x}%`;
+    bubble.style.top = `${position.y}%`;
+    
+    // Add random animation delay
+    bubble.style.animationDelay = `${Math.random() * 20}s`;
+    
+    // Add join ripple effect
+    this.createJoinRipple(position.x, position.y);
+    
+    this.container.appendChild(bubble);
+    this.participants.set(userId, { element: bubble, data: data, position: position });
+    this.positions.set(userId, position);
+    
+    // Remove 'new' class after animation
+    setTimeout(() => bubble.classList.remove('new'), 500);
+  }
+
   findOptimalPosition(userId) {
     let attempts = 0;
     let bestPosition = null;
     let bestMinDistance = 0;
-  
-  while (attempts < this.MAX_POSITION_ATTEMPTS) {
-    const position = this.generateRandomPosition();
     
-    if (!this.hasCollision(position)) {
-      return position;
+    while (attempts < this.MAX_POSITION_ATTEMPTS) {
+      const position = this.generateRandomPosition();
+      
+      if (!this.hasCollision(position)) {
+        return position;
+      }
+      
+      const minDist = this.getMinimumDistance(position);
+      if (minDist > bestMinDistance) {
+        bestMinDistance = minDist;
+        bestPosition = position;
+      }
+      
+      attempts++;
     }
     
-    const minDist = this.getMinimumDistance(position);
-    if (minDist > bestMinDistance) {
-      bestMinDistance = minDist;
-      bestPosition = position;
-    }
-    
-    attempts++;
+    return bestPosition || this.generateRandomPosition();
   }
-  
-  return bestPosition || this.generateRandomPosition();
-}
 
-hasCollision(position) {
-  for (const [otherId, otherPos] of this.positions) {
-    const distance = Math.sqrt(
-      Math.pow(position.x - otherPos.x, 2) + 
-      Math.pow(position.y - otherPos.y, 2)
-    );
-    
-    if (distance < this.COLLISION_DISTANCE) {
-      return true;
+  hasCollision(position) {
+    for (const [otherId, otherPos] of this.positions) {
+      const distance = Math.sqrt(
+        Math.pow(position.x - otherPos.x, 2) + 
+        Math.pow(position.y - otherPos.y, 2)
+      );
+      
+      if (distance < this.COLLISION_DISTANCE) {
+        return true;
+      }
     }
+    return false;
   }
-  return false;
-}
 
-getMinimumDistance(position) {
-  let minDist = Infinity;
-  
-  for (const [otherId, otherPos] of this.positions) {
-    const distance = Math.sqrt(
-      Math.pow(position.x - otherPos.x, 2) + 
-      Math.pow(position.y - otherPos.y, 2)
-    );
-    minDist = Math.min(minDist, distance);
+  getMinimumDistance(position) {
+    let minDist = Infinity;
+    
+    for (const [otherId, otherPos] of this.positions) {
+      const distance = Math.sqrt(
+        Math.pow(position.x - otherPos.x, 2) + 
+        Math.pow(position.y - otherPos.y, 2)
+      );
+      minDist = Math.min(minDist, distance);
+    }
+    
+    return minDist === Infinity ? 100 : minDist;
   }
-  
-  return minDist === Infinity ? 100 : minDist;
-}
     // Generate random position
     const position = this.findOptimalPosition(userId);
     bubble.style.left = `${position.x}%`;
