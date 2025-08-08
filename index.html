@@ -1617,6 +1617,8 @@ body {
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
 
+ <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+
 <script>
 // Firebase configuration
 const firebaseConfig = {
@@ -1719,54 +1721,74 @@ let lobbySystem = null;
 
 class LobbySystem {
   constructor() {
-  this.container = document.getElementById('lobbyParticipants');
-  this.counter = document.getElementById('lobbyCounter');
-  this.countEl = document.getElementById('lobbyCount');
-  this.participants = new Map();
-  this.listener = null;
-  this.positions = new Map();  // Changed from Set to Map
-  this.COLLISION_DISTANCE = 4;  // NEW
-  this.MAX_POSITION_ATTEMPTS = 50;  // NEW
-}
+    this.container = document.getElementById('lobbyParticipants');
+    this.counter = document.getElementById('lobbyCounter');
+    this.countEl = document.getElementById('lobbyCount');
+    this.participants = new Map();
+    this.positions = new Map();
+    this.COLLISION_DISTANCE = 4;
+    this.MAX_POSITION_ATTEMPTS = 50;
+    this.realtimeDb = firebase.database(); // Initialize Realtime Database
+  }
 
-  start() {
+  async start() {
     if (!currentUser) return;
     
-    console.log('Starting lobby system...');
+    console.log('Starting realtime lobby system...');
     
     // Add current user to lobby
-    this.addCurrentUserToLobby();
+    await this.addCurrentUserToLobby();
     
-    // Listen for other participants
-    this.listener = db.collection('lobby')
-      .where('active', '==', true)
-      .onSnapshot((snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          const data = change.doc.data();
-          const userId = change.doc.id;
-          
-          if (change.type === 'added') {
-            this.addParticipant(userId, data);
-          } else if (change.type === 'removed') {
-            this.removeParticipant(userId);
-          }
-        });
-        
-        this.updateCounter();
-      });
+    // Listen for all lobby changes
+    this.setupRealtimeListener();
   }
 
   async addCurrentUserToLobby() {
     try {
-      await db.collection('lobby').doc(currentUser.id).set({
+      const userRef = this.realtimeDb.ref(`lobby/${currentUser.id}`);
+      
+      // Set user data
+      await userRef.set({
         name: currentUser.name,
         team: currentUser.team || 'Solo',
-        active: true,
-        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+        timestamp: firebase.database.ServerValue.TIMESTAMP
       });
+      
+      // MAGIC: Automatically remove when user disconnects!
+      userRef.onDisconnect().remove();
+      
+      console.log('Added to realtime lobby with auto-cleanup');
     } catch (error) {
       console.error('Error joining lobby:', error);
     }
+  }
+
+  setupRealtimeListener() {
+    // Listen to entire lobby
+    this.realtimeDb.ref('lobby').on('value', (snapshot) => {
+      const lobbyData = snapshot.val() || {};
+      this.updateLobbyDisplay(lobbyData);
+    });
+  }
+
+  updateLobbyDisplay(lobbyData) {
+    const currentIds = new Set(Object.keys(lobbyData));
+    
+    // Add new participants
+    currentIds.forEach(userId => {
+      if (!this.participants.has(userId)) {
+        this.addParticipant(userId, lobbyData[userId]);
+      }
+    });
+    
+    // Remove participants who left
+    this.participants.forEach((participant, userId) => {
+      if (!currentIds.has(userId)) {
+        this.removeParticipant(userId);
+      }
+    });
+    
+    this.updateCounter();
   }
 
   addParticipant(userId, data) {
@@ -1776,33 +1798,26 @@ class LobbySystem {
     bubble.className = 'participant-bubble new';
     bubble.dataset.userId = userId;
     
-    // Check if it's the current user
     if (userId === currentUser?.id) {
       bubble.classList.add('me');
     }
     
-    // Set content
     bubble.innerHTML = `
       ${data.name}
       ${data.team !== 'Solo' ? `<div class="team">${data.team}</div>` : ''}
     `;
     
-    // Generate position with collision detection
     const position = this.findOptimalPosition(userId);
     bubble.style.left = `${position.x}%`;
     bubble.style.top = `${position.y}%`;
-    
-    // Add random animation delay
     bubble.style.animationDelay = `${Math.random() * 20}s`;
     
-    // Add join ripple effect
     this.createJoinRipple(position.x, position.y);
     
     this.container.appendChild(bubble);
     this.participants.set(userId, { element: bubble, data: data, position: position });
     this.positions.set(userId, position);
     
-    // Remove 'new' class after animation
     setTimeout(() => bubble.classList.remove('new'), 500);
   }
 
@@ -1857,6 +1872,7 @@ class LobbySystem {
     
     return minDist === Infinity ? 100 : minDist;
   }
+
   createJoinRipple(x, y) {
     const ripple = document.createElement('div');
     ripple.className = 'join-ripple';
@@ -1882,31 +1898,31 @@ class LobbySystem {
   }
 
   generateRandomPosition() {
-   const centerX = 50;
-   const centerY = 50;
-   const minDistanceFromCenter = 20;  // Reduced from 25-30
-   
-   let x, y, distance;
-   const maxAttempts = 50;
-   let attempts = 0;
-   
-   do {
-     x = Math.random() * 94 + 3; // 3-97%
-     y = Math.random() * 94 + 3; // 3-97%
-     
-     distance = Math.sqrt(
-       Math.pow(x - centerX, 2) + 
-       Math.pow(y - centerY, 2)
-     );
-     
-     attempts++;
-     if (attempts > maxAttempts) {
-       break;
-     }
-   } while (distance < minDistanceFromCenter);
-   
-   return { x, y };
- }
+    const centerX = 50;
+    const centerY = 50;
+    const minDistanceFromCenter = 20;
+    
+    let x, y, distance;
+    const maxAttempts = 50;
+    let attempts = 0;
+    
+    do {
+      x = Math.random() * 94 + 3;
+      y = Math.random() * 94 + 3;
+      
+      distance = Math.sqrt(
+        Math.pow(x - centerX, 2) + 
+        Math.pow(y - centerY, 2)
+      );
+      
+      attempts++;
+      if (attempts > maxAttempts) {
+        break;
+      }
+    } while (distance < minDistanceFromCenter);
+    
+    return { x, y };
+  }
 
   updateCounter() {
     const count = this.participants.size;
@@ -1920,22 +1936,19 @@ class LobbySystem {
   }
 
   async cleanup() {
-    // Remove current user from lobby
+    // Remove from realtime database
     if (currentUser) {
       try {
-        await db.collection('lobby').doc(currentUser.id).delete();
+        await this.realtimeDb.ref(`lobby/${currentUser.id}`).remove();
       } catch (error) {
         console.error('Error leaving lobby:', error);
       }
     }
     
-    // Stop listener
-    if (this.listener) {
-      this.listener();
-      this.listener = null;
-    }
+    // Stop listening
+    this.realtimeDb.ref('lobby').off();
     
-    // Clear participants
+    // Clear display
     this.participants.clear();
     this.positions.clear();
     this.container.innerHTML = '';
