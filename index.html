@@ -2963,9 +2963,7 @@ function updateLeaderboardDisplay() {
       return b.completedTasks - a.completedTasks;
     }
     return a.totalHints - b.totalHints;
-  });
-  
-  // Update DOM
+     // Update DOM
   const leaderboardContent = document.getElementById('leaderboardContent');
   const currentUserHasUnlockedTask6 = currentUser && gameInstance && gameInstance.completedTasks['task5'];
   const displayTotal = currentUserHasUnlockedTask6 ? 6 : 5;
@@ -3005,6 +3003,8 @@ function updateLeaderboardDisplay() {
   html += '</tbody></table>';
   leaderboardContent.innerHTML = html;
 }  
+  });
+  
     // Find current user's position
     const userPosition = sortedLeaderboard.findIndex(user => user.id === currentUser.id) + 1;
     
