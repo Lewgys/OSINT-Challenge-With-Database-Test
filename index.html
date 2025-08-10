@@ -1700,6 +1700,11 @@ const ACHIEVEMENTS = {
     description: "First person to complete any task in the challenge",
     icon: "🩸",
     special: "red" // New special type for red styling
+  },
+   leaderboard_stalker: {
+    title: "Leaderboard Stalker",
+    description: "Checked the leaderboard 15+ times",
+    icon: "👀"
   }
 };
 
@@ -1708,6 +1713,8 @@ let userStartTime = null; // Track when user started
 let taskStartTimes = {}; // Track when each task was started
 let totalWrongAnswers = 0; // Track wrong answers
 let gameInstance = null; // Store the game instance globally
+let leaderboardViewCount = loadLeaderboardViewCount(); // Track leaderboard views
+
 
 // Real-time leaderboard variables
 let leaderboardListener = null;
@@ -2723,6 +2730,26 @@ async function checkAchievements(context, data = {}) {
         await unlockAchievement('wrong_king', userId, userName, teamName);
       }
       break;
+    case 'answer_wrong':
+      // King of Getting Answers Wrong - Have more than 5 wrong answers
+      totalWrongAnswers++;
+      console.log('Wrong answer, total count:', totalWrongAnswers);
+      if (totalWrongAnswers > 5) {
+        await unlockAchievement('wrong_king', userId, userName, teamName);
+      }
+      break;
+      
+    case 'leaderboard_viewed':
+      // Leaderboard Stalker - Check leaderboard 15+ times
+      leaderboardViewCount++;
+      console.log('Leaderboard viewed, count:', leaderboardViewCount);
+      if (leaderboardViewCount === 15) {
+        console.log('15 leaderboard views - unlocking leaderboard_stalker');
+        await unlockAchievement('leaderboard_stalker', userId, userName, teamName);
+      }
+      break;
+  }
+}
   }
 }
 
@@ -3098,7 +3125,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // UPDATED Dashboard functionality with real-time listener
   dashboardBtn.addEventListener('click', () => {
     dashboardModal.classList.add('active');
-    
+
+   // Track leaderboard view for achievement
+   checkAchievements('leaderboard_viewed');
+   saveLeaderboardViewCount();
+   
     // Initialize listener on first open
     if (!isLeaderboardInitialized) {
       initializeLeaderboard();
@@ -3162,7 +3193,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 });
+ 
+function loadLeaderboardViewCount() {
+  try {
+    const saved = localStorage.getItem(CONFIG.STORAGE_KEY + '_leaderboard_views');
+    return saved ? parseInt(saved) : 0;
+  } catch (e) {
+    console.error('Failed to load leaderboard view count:', e);
+    return 0;
+  }
+}
 
+function saveLeaderboardViewCount() {
+  try {
+    localStorage.setItem(CONFIG.STORAGE_KEY + '_leaderboard_views', leaderboardViewCount.toString());
+  } catch (e) {
+    console.error('Failed to save leaderboard view count:', e);
+  }
+}
 // Game state management
 class OSINTChallenge {
   constructor() {
