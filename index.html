@@ -2730,15 +2730,7 @@ async function checkAchievements(context, data = {}) {
         await unlockAchievement('wrong_king', userId, userName, teamName);
       }
       break;
-    case 'answer_wrong':
-      // King of Getting Answers Wrong - Have more than 5 wrong answers
-      totalWrongAnswers++;
-      console.log('Wrong answer, total count:', totalWrongAnswers);
-      if (totalWrongAnswers > 5) {
-        await unlockAchievement('wrong_king', userId, userName, teamName);
-      }
-      break;
-      
+    
     case 'leaderboard_viewed':
       // Leaderboard Stalker - Check leaderboard 15+ times
       leaderboardViewCount++;
