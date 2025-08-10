@@ -1651,14 +1651,6 @@ let countdownInterval = null;
 let challengeStarted = false;
 let challengeStartTime = null;
 
-// Add these tracking variables
-let briefingClickCount = 0;
-let leaderboardViewCount = 0;
-let consistentPerformerTracking = {
-  startTime: null,
-  lastCheckTime: null,
-  qualified: false
-};
 // Global achievements system
 const ACHIEVEMENTS = {
   helping_hand: {
@@ -1708,29 +1700,6 @@ const ACHIEVEMENTS = {
     description: "First person to complete any task in the challenge",
     icon: "🩸",
     special: "red" // New special type for red styling
-  },
-   social_butterfly: {
-    title: "Social Butterfly",
-    description: "Completed Task 4 (Social Scrape) without hints",
-    icon: "🦋"
-  },
-  
-   consistent_performer: {
-    title: "Consistent Performer",
-    description: "Stayed in top 5 for over 30 minutes",
-    icon: "⭐"
-  },
-  
-   curious_investigator: {
-    title: "Curious Investigator",
-    description: "Clicked on the briefing 10+ times (maybe you missed something?)",
-    icon: "🕵️"
-  },
-  
-   leaderboard_stalker: {
-    title: "Leaderboard Stalker",
-    description: "Checked the leaderboard 15+ times",
-    icon: "👀"
   }
 };
 
@@ -2059,78 +2028,7 @@ function proceedWithChallengeStart() {
     }
   }, 3000);
 }
-async function checkConsistentPerformer() {
-  if (!currentUser) return;
-  
-  try {
-    // Get current leaderboard standings
-    const sortedLeaderboard = Array.from(leaderboardData.values()).sort((a, b) => {
-      if (b.completedTasks !== a.completedTasks) {
-        return b.completedTasks - a.completedTasks;
-      }
-      return a.totalHints - b.totalHints;
-    });
-    
-    // Find current user's position
-    const userPosition = sortedLeaderboard.findIndex(user => user.id === currentUser.id) + 1;
-    
-    console.log('User position:', userPosition, 'Total users:', sortedLeaderboard.length);
-    
-    // Check if user is in top 5
-    if (userPosition > 0 && userPosition <= 5) {
-      const now = Date.now();
-      
-      if (!consistentPerformerTracking.startTime) {
-        // First time in top 5
-        consistentPerformerTracking.startTime = now;
-        consistentPerformerTracking.lastCheckTime = now;
-        console.log('Started tracking consistent performer');
-      } else {
-        // Check if still consistently in top 5
-        const timeSinceLastCheck = now - consistentPerformerTracking.lastCheckTime;
-        
-        // If checked within reasonable time (5 minutes), continue tracking
-        if (timeSinceLastCheck < 5 * 60 * 1000) {
-          consistentPerformerTracking.lastCheckTime = now;
-          
-          const totalTime = now - consistentPerformerTracking.startTime;
-          const thirtyMinutes = 30 * 60 * 1000;
-          
-          console.log('Consistent performer time:', Math.floor(totalTime / 1000 / 60), 'minutes');
-          
-          if (totalTime >= thirtyMinutes && !consistentPerformerTracking.qualified) {
-            consistentPerformerTracking.qualified = true;
-            await unlockAchievement('consistent_performer', currentUser.id, currentUser.name, currentUser.team);
-          }
-        } else {
-          // Too long since last check, reset
-          console.log('Reset consistent performer tracking - too long between checks');
-          consistentPerformerTracking.startTime = now;
-          consistentPerformerTracking.lastCheckTime = now;
-        }
-      }
-    } else {
-      // Not in top 5, reset tracking
-      if (consistentPerformerTracking.startTime) {
-        console.log('Reset consistent performer tracking - dropped out of top 5');
-      }
-      consistentPerformerTracking.startTime = null;
-      consistentPerformerTracking.lastCheckTime = null;
-    }
-  } catch (error) {
-    console.error('Error checking consistent performer:', error);
-  }
-}  // THIS WAS MISSING!
 
-function startConsistentPerformerMonitoring() {
-  // Check every 2 minutes if user maintains top 5 position
-  setInterval(() => {
-    if (currentUser && leaderboardData.size > 0) {
-      checkConsistentPerformer();
-    }
-  }, 2 * 60 * 1000); // Every 2 minutes
-}
- 
 function initializeGame() {
   // Initialize the main challenge
   gameInstance = new OSINTChallenge();
@@ -2143,10 +2041,6 @@ function initializeGame() {
   
   // Show dashboard button
   document.getElementById('dashboardBtn').style.display = 'block';
-  
-  // ADD THIS NEW LINE HERE
-  // Start monitoring for consistent performer
-  startConsistentPerformerMonitoring();
 }
 
 // Modified Session management functions
@@ -2772,10 +2666,6 @@ async function checkAchievements(context, data = {}) {
       if (data.taskId === 'task1') {
         await unlockAchievement('baby_steps', userId, userName, teamName);
       }
-        // Social Butterfly - Complete Task 4 without hints
-      if (data.taskId === 'task4' && data.taskHintsUsed === 0) {
-        await unlockAchievement('social_butterfly', userId, userName, teamName);
-      }
       
       // Crypto Bro - Complete Task 3 in 30 minutes or less
       if (data.taskId === 'task3') {
@@ -2963,9 +2853,9 @@ function updateLeaderboardDisplay() {
       return b.completedTasks - a.completedTasks;
     }
     return a.totalHints - b.totalHints;
-  });  // <-- CLOSE THE SORT FUNCTION HERE!
+  });
   
-  // Update DOM - THIS SHOULD BE OUTSIDE THE SORT FUNCTION
+  // Update DOM
   const leaderboardContent = document.getElementById('leaderboardContent');
   const currentUserHasUnlockedTask6 = currentUser && gameInstance && gameInstance.completedTasks['task5'];
   const displayTotal = currentUserHasUnlockedTask6 ? 6 : 5;
@@ -3005,77 +2895,7 @@ function updateLeaderboardDisplay() {
   html += '</tbody></table>';
   leaderboardContent.innerHTML = html;
 }
-  
-  sortedLeaderboard.forEach((user, index) => {
-    const isCurrentUser = currentUser && user.id === currentUser.id;
-    const displayedCompleted = Math.min(user.completedTasks, displayTotal);
-    
-    html += `
-      <tr${isCurrentUser ? ' style="background: rgba(176, 211, 81, 0.1);"' : ''}>
-        <td>${index + 1}</td>
-        <td>${user.name}${isCurrentUser ? ' (You)' : ''}</td>
-        <td>${user.team}</td>
-        <td>${displayedCompleted}/${displayTotal}</td>
-        <td>${user.totalHints}</td>
-      </tr>
-    `;
-  });
-  
-  html += '</tbody></table>';
-  leaderboardContent.innerHTML = html;
-}  
-  });
-  
-    // Find current user's position
-    const userPosition = sortedLeaderboard.findIndex(user => user.id === currentUser.id) + 1;
-    
-    console.log('User position:', userPosition, 'Total users:', sortedLeaderboard.length);
-    
-    // Check if user is in top 5
-    if (userPosition > 0 && userPosition <= 5) {
-      const now = Date.now();
-      
-      if (!consistentPerformerTracking.startTime) {
-        // First time in top 5
-        consistentPerformerTracking.startTime = now;
-        consistentPerformerTracking.lastCheckTime = now;
-        console.log('Started tracking consistent performer');
-      } else {
-        // Check if still consistently in top 5
-        const timeSinceLastCheck = now - consistentPerformerTracking.lastCheckTime;
-        
-        // If checked within reasonable time (5 minutes), continue tracking
-        if (timeSinceLastCheck < 5 * 60 * 1000) {
-          consistentPerformerTracking.lastCheckTime = now;
-          
-          const totalTime = now - consistentPerformerTracking.startTime;
-          const thirtyMinutes = 30 * 60 * 1000;
-          
-          console.log('Consistent performer time:', Math.floor(totalTime / 1000 / 60), 'minutes');
-          
-          if (totalTime >= thirtyMinutes && !consistentPerformerTracking.qualified) {
-            consistentPerformerTracking.qualified = true;
-            await unlockAchievement('consistent_performer', currentUser.id, currentUser.name, currentUser.team);
-          }
-        } else {
-          // Too long since last check, reset
-          console.log('Reset consistent performer tracking - too long between checks');
-          consistentPerformerTracking.startTime = now;
-          consistentPerformerTracking.lastCheckTime = now;
-        }
-      }
-    } else {
-      // Not in top 5, reset tracking
-      if (consistentPerformerTracking.startTime) {
-        console.log('Reset consistent performer tracking - dropped out of top 5');
-      }
-      consistentPerformerTracking.startTime = null;
-      consistentPerformerTracking.lastCheckTime = null;
-    }
-  } catch (error) {
-    console.error('Error checking consistent performer:', error);
-  }
-}
+
 // REPLACED OLD loadLeaderboard function with real-time version
 async function loadLeaderboard() {
   // This function is kept for compatibility but now just returns the real-time data
@@ -3275,30 +3095,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   
-// Update the dashboard button click handler
-dashboardBtn.addEventListener('click', () => {
-  // Add view tracking
-  leaderboardViewCount++;
-  console.log('Leaderboard viewed:', leaderboardViewCount);
-  
-  // Check for leaderboard stalker achievement
-  if (leaderboardViewCount === 15 && currentUser) {
-    unlockAchievement('leaderboard_stalker', currentUser.id, currentUser.name, currentUser.team);
-  }
-  
-  dashboardModal.classList.add('active');
-  
-  //Initialise listener on first open
-  if (!isLeaderboardInitialized) {
-    initializeLeaderboard();
-  } else {
-    // Just update display with existing data
-    updateLeaderboardDisplay();
-  }
-  
-  // Check for consistent performer
-  checkConsistentPerformer();
-});
+  // UPDATED Dashboard functionality with real-time listener
+  dashboardBtn.addEventListener('click', () => {
+    dashboardModal.classList.add('active');
+    
+    // Initialize listener on first open
+    if (!isLeaderboardInitialized) {
+      initializeLeaderboard();
+    } else {
+      // Just update display with existing data
+      updateLeaderboardDisplay();
+    }
+  });
   
   closeDashboard.addEventListener('click', () => {
     dashboardModal.classList.remove('active');
@@ -3309,29 +3117,19 @@ dashboardBtn.addEventListener('click', () => {
   const briefingDropdown = document.getElementById('briefingDropdown');
   const briefingClose = document.getElementById('briefingClose');
 
-function toggleBriefing() {
-  // Add click tracking
-  briefingClickCount++;
-  console.log('Briefing clicked:', briefingClickCount);
-  
-  // Check for curious investigator achievement
-  if (briefingClickCount === 10 && currentUser) {
-    unlockAchievement('curious_investigator', currentUser.id, currentUser.name, currentUser.team);
+  function toggleBriefing() {
+    const isVisible = briefingDropdown.style.display === 'block';
+    briefingDropdown.style.display = isVisible ? 'none' : 'block';
+    
+    // Reset position if it was moved for countdown
+    if (briefingDropdown.style.position === 'fixed') {
+      briefingDropdown.style.position = '';
+      briefingDropdown.style.top = '';
+      briefingDropdown.style.left = '';
+      briefingDropdown.style.transform = '';
+      briefingDropdown.style.zIndex = '';
+    }
   }
-  
-  // Existing toggle code
-  const isVisible = briefingDropdown.style.display === 'block';
-  briefingDropdown.style.display = isVisible ? 'none' : 'block';
-  
-  // Reset position if it was moved for countdown
-  if (briefingDropdown.style.position === 'fixed') {
-    briefingDropdown.style.position = '';
-    briefingDropdown.style.top = '';
-    briefingDropdown.style.left = '';
-    briefingDropdown.style.transform = '';
-    briefingDropdown.style.zIndex = '';
-  }
-}
 
   function closeBriefing() {
     briefingDropdown.style.display = 'none';
@@ -3733,16 +3531,16 @@ async checkAndClaimFirstBlood() {
 async handleSubmit(task, feedbackP, submitBtn) {
   const inputs = Array.from(document.querySelectorAll(`input[id^="${task.id}_q"]`));
   const answers = inputs.map(inp => sanitizeInput(inp.value));
-  
+
   if (answers.some(answer => !answer)) {
     this.showFeedback(feedbackP, 'Please fill in all fields.', 'error');
     return;
   }
-  
+
   submitBtn.disabled = true;
   submitBtn.classList.add('loading');
   submitBtn.textContent = '';
-  
+
   try {
     // Call Val.town API for validation
     const response = await fetch(CONFIG.VAL_TOWN_API, {
@@ -3754,18 +3552,18 @@ async handleSubmit(task, feedbackP, submitBtn) {
         userId: currentUser?.id || 'anonymous'
       })
     });
-    
+
     if (response.status === 403) {
       const data = await response.json();
       this.showFeedback(feedbackP, 'Challenge has not started yet!', 'error');
       console.log(`Challenge starts at: ${data.startsAt}`);
       return;
     }
-    
+
     if (!response.ok) {
       throw new Error('Validation failed');
     }
-    
+
     const result = await response.json();
     const allCorrect = result.allCorrect;
     
@@ -3800,13 +3598,13 @@ async handleSubmit(task, feedbackP, submitBtn) {
         this.unlockNextTask(task);
         
         // Check for task completion achievements
-        const taskHintsUsed = this.taskHintsUsed[task.id] || 0;  // ONLY DECLARE ONCE
+        const taskHintsUsed = this.taskHintsUsed[task.id] || 0;
         checkAchievements('task_completed', { 
           taskId: task.id, 
           completedCount: Object.keys(this.completedTasks).length,
           attempts: this.attemptCounts[task.id] || 1,
           hintsUsed: this.hintClickCount,
-          taskHintsUsed: taskHintsUsed,  // USE THE VARIABLE HERE
+          taskHintsUsed: taskHintsUsed,
           firstBlood: isFirstBlood
         });
         
