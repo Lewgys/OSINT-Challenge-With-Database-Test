@@ -1701,6 +1701,11 @@ const ACHIEVEMENTS = {
     icon: "🩸",
     special: "red" // New special type for red styling
   },
+   social_butterfly: {
+    title: "Social Butterfly",
+    description: "Completed Task 4 (Social Scrape) without hints",
+    icon: "🦋"
+  },
    leaderboard_stalker: {
     title: "Leaderboard Stalker",
     description: "Checked the leaderboard 15+ times",
@@ -2673,7 +2678,10 @@ async function checkAchievements(context, data = {}) {
       if (data.taskId === 'task1') {
         await unlockAchievement('baby_steps', userId, userName, teamName);
       }
-      
+      if (data.taskId === 'task4' && data.taskHintsUsed === 0) {
+         console.log('Task 4 completed with no hints - unlocking social_butterfly');
+         await unlockAchievement('social_butterfly', userId, userName, teamName);
+      }
       // Crypto Bro - Complete Task 3 in 30 minutes or less
       if (data.taskId === 'task3') {
         const taskStartTime = taskStartTimes['task3'];
